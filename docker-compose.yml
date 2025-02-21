@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: payment_backend
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - tor
+
+  frontend:
+    build: ./frontend
+    container_name: payment_frontend
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+
+  db:
+    image: postgres:13
+    container_name: payment_db
+    environment:
+      POSTGRES_DB: payment_system
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  tor:
+    image: torserver/tor
+    container_name: payment_tor
+    volumes:
+      - ./tor/torrc:/etc/tor/torrc
+    ports:
+      - "9050:9050"
