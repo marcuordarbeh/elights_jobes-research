@@ -15,34 +15,47 @@ struct ACHDetails {
     routing_number: String,
 }
 
+#[derive(Deserialize)]
+struct CryptoConversionRequest {
+    amount: f64,
+}
+
 #[post("/process_card")]
-async fn process_card(req: web::Json<CardDetails>) -> HttpResponse {
+pub async fn process_card(req: web::Json<CardDetails>) -> HttpResponse {
     match payment_service::process_card(&req.card_number, &req.expiry_date, &req.cvv).await {
         Ok(_) => HttpResponse::Ok().finish(),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
 #[post("/generate_ach")]
-async fn generate_ach(req: web::Json<ACHDetails>) -> HttpResponse {
-    match payment_service::generate_ach(&req.account_number, &req.routing_number).await {
+pub async fn generate_ach(
+    req: web::Json<ACHDetails>,
+    db_pool: web::Data<sqlx::PgPool>,
+) -> HttpResponse {
+    match payment_service::generate_ach(&db_pool, &req.account_number, &req.routing_number).await {
         Ok(_) => HttpResponse::Ok().finish(),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
-#[post("/receive_bank_transfer")]
-async fn receive_bank_transfer() -> HttpResponse {
-    match payment_service::receive_bank_transfer().await {
+#[post("/wire_transfer")]
+pub async fn wire_transfer(
+    db_pool: web::Data<sqlx::PgPool>,
+) -> HttpResponse {
+    match payment_service::receive_bank_transfer(&db_pool).await {
         Ok(_) => HttpResponse::Ok().finish(),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
 #[post("/convert_to_crypto")]
-async fn convert_to_crypto() -> HttpResponse {
-    match payment_service::convert_to_crypto().await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+pub async fn convert_to_crypto(
+    req: web::Json<CryptoConversionRequest>,
+    redis_conn: web::Data<redis::aio::ConnectionManager>,
+) -> HttpResponse {
+    match payment_service::convert_to_crypto(&redis_conn, req.amount).await {
+        Ok(wallet_address) => HttpResponse::Ok().body(wallet_address),
+        Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
