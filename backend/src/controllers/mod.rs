@@ -2,6 +2,7 @@ use actix_web::web;
 
 mod auth_controller;
 mod payment_controller;
+pub mod user_controller;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
@@ -10,7 +11,7 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
             .service(auth_controller::login)
             .service(payment_controller::process_card)
             .service(payment_controller::generate_ach)
-            .service(payment_controller::receive_bank_transfer)
+            .service(payment_controller::wire_transfer)
             .service(payment_controller::convert_to_crypto),
     );
 }
