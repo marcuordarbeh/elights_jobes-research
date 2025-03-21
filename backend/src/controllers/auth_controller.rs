@@ -16,17 +16,23 @@ struct LoginRequest {
 }
 
 #[post("/register")]
-async fn register(req: web::Json<RegisterRequest>) -> HttpResponse {
-    match auth_service::register(&req.username, &req.password, &req.role).await {
+pub async fn register(
+    req: web::Json<RegisterRequest>,
+    db_pool: web::Data<sqlx::PgPool>,
+) -> HttpResponse {
+    match auth_service::register(&db_pool, &req.username, &req.password, &req.role).await {
         Ok(_) => HttpResponse::Ok().finish(),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+        Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
 #[post("/login")]
-async fn login(req: web::Json<LoginRequest>) -> HttpResponse {
-    match auth_service::login(&req.username, &req.password).await {
+pub async fn login(
+    req: web::Json<LoginRequest>,
+    db_pool: web::Data<sqlx::PgPool>,
+) -> HttpResponse {
+    match auth_service::login(&db_pool, &req.username, &req.password).await {
         Ok(token) => HttpResponse::Ok().body(token),
-        Err(err) => HttpResponse::Unauthorized().body(err.to_string()),
+        Err(err) => HttpResponse::Unauthorized().body(err),
     }
 }
