@@ -1,24 +1,44 @@
 #!/bin/bash
 
-# Install necessary packages
-apt update
-apt install -y tor postgresql postgresql-contrib
+# Must be run as root.
+if [ "$(id -u)" -ne 0 ]; then
+  echo "This script must be run as root. Try 'sudo ./scripts/setup.sh'"
+  exit 1
+fi
 
-# Start PostgreSQL service
+echo "Updating packages..."
+apt update
+
+echo "Installing Tor, PostgreSQL, and Redis..."
+apt install -y tor postgresql postgresql-contrib redis-server
+
+echo "Starting PostgreSQL service..."
 service postgresql start
 
-# Set up PostgreSQL database
+echo "Setting up PostgreSQL database and user..."
 sudo -u postgres psql -c "CREATE DATABASE payment_system;"
 sudo -u postgres psql -c "CREATE USER payment_user WITH ENCRYPTED PASSWORD 'password';"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE payment_system TO payment_user;"
 
-# Run database initialization script
-sudo -u postgres psql -d payment_system -f /path/to/your/database/init.sql
+if [ -f ./database/init.sql ]; then
+  echo "Initializing database schema..."
+  sudo -u postgres psql -d payment_system -f ./database/init.sql
+else
+  echo "Warning: Database initialization script not found."
+fi
 
-# Start Tor service
+echo "Starting Tor service..."
 service tor start
 
-# Set up environment variables
-echo "DATABASE_URL=postgres://payment_user:password@localhost:5432/payment_system" > /path/to/your/.env
-echo "STRIPE_SECRET_KEY=your_stripe_secret_key" >> /path/to/your/.env
-echo "JWT_SECRET=your_jwt_secret" >> /path/to/your/.env
+echo "Starting Redis service..."
+service redis-server start
+
+echo "Writing environment variables to project root .env file..."
+cat > ../.env <<EOL
+DATABASE_URL=postgres://payment_user:password@localhost:5432/payment_system
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+JWT_SECRET=your_jwt_secret_here
+REDIS_URL=redis://127.0.0.1:6379/0
+EOL
+
+echo "Setup complete. PostgreSQL, Tor, and Redis are running."
