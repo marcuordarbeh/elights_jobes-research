@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -11,6 +10,7 @@ services:
     depends_on:
       - db
       - tor
+      - redis
 
   frontend:
     build: ./frontend
@@ -33,9 +33,16 @@ services:
       - "5432:5432"
 
   tor:
-    image: torserver/tor
+    image: dperson/torproxy
     container_name: payment_tor
-    volumes:
-      - ./tor/torrc:/etc/tor/torrc
+    command: "-socksPort 9050 -hiddenServiceDir /var/lib/tor/tor.service/ -hiddenServicePort 80 127.0.0.1:8080"
     ports:
       - "9050:9050"
+    volumes:
+      - ./tor:/var/lib/systemd/system/tor.service
+
+  redis:
+    image: redis:alpine
+    container_name: payment_redis
+    ports:
+      - "6379:6379"
