@@ -1,0 +1,12 @@
+{
+  "name": "payment-system-",
+  "version": "1.0.0",
+  "description": "/payment-system     /backend         /src             /controllers             /models             /repositories             /services             /middlewares             /config             /utils         Cargo.toml         main.rs     /frontend         /public         /src             /components             /services             /pages             App.tsx             index.tsx             react-app-env.d.ts             setupTests.ts     /database         init.sql     /tor         torrc     /scripts         setup.sh     .env     docker-compose.yml     README.md",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
