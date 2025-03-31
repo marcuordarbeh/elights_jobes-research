@@ -10,52 +10,39 @@ struct CardDetails {
 }
 
 #[derive(Deserialize)]
-struct ACHDetails {
+struct ACHInput {
     account_number: String,
     routing_number: String,
-}
-
-#[derive(Deserialize)]
-struct CryptoConversionRequest {
-    amount: f64,
 }
 
 #[post("/process_card")]
 pub async fn process_card(req: web::Json<CardDetails>) -> HttpResponse {
     match payment_service::process_card(&req.card_number, &req.expiry_date, &req.cvv).await {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(result) => HttpResponse::Ok().json(result),
         Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
 #[post("/generate_ach")]
-pub async fn generate_ach(
-    req: web::Json<ACHDetails>,
-    db_pool: web::Data<sqlx::PgPool>,
-) -> HttpResponse {
-    match payment_service::generate_ach(&db_pool, &req.account_number, &req.routing_number).await {
-        Ok(_) => HttpResponse::Ok().finish(),
+pub async fn generate_ach(db_pool: web::Data<sqlx::PgPool>) -> HttpResponse {
+    match payment_service::generate_ach(&db_pool).await {
+        Ok(_) => HttpResponse::Ok().body("ACH details generated successfully"),
         Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
-#[post("/wire_transfer")]
-pub async fn wire_transfer(
-    db_pool: web::Data<sqlx::PgPool>,
-) -> HttpResponse {
+#[post("/receive_bank_transfer")]
+pub async fn receive_bank_transfer(db_pool: web::Data<sqlx::PgPool>) -> HttpResponse {
     match payment_service::receive_bank_transfer(&db_pool).await {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => HttpResponse::Ok().body("Wire transfer details generated successfully"),
         Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }
 
 #[post("/convert_to_crypto")]
-pub async fn convert_to_crypto(
-    req: web::Json<CryptoConversionRequest>,
-    redis_conn: web::Data<redis::aio::ConnectionManager>,
-) -> HttpResponse {
-    match payment_service::convert_to_crypto(&redis_conn, req.amount).await {
-        Ok(wallet_address) => HttpResponse::Ok().body(wallet_address),
+pub async fn convert_to_crypto() -> HttpResponse {
+    match payment_service::convert_to_crypto().await {
+        Ok(_) => HttpResponse::Ok().body("Conversion to crypto completed successfully"),
         Err(err) => HttpResponse::InternalServerError().body(err),
     }
 }

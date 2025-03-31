@@ -1,6 +1,5 @@
 #!/bin/bash
-
-# Must be run as root.
+# setup.sh - Installs required packages and configures PostgreSQL, Tor, and Redis.
 if [ "$(id -u)" -ne 0 ]; then
   echo "This script must be run as root. Try 'sudo ./scripts/setup.sh'"
   exit 1
@@ -39,6 +38,8 @@ DATABASE_URL=postgres://payment_user:password@localhost:5432/payment_system
 STRIPE_SECRET_KEY=your_stripe_secret_key_here
 JWT_SECRET=your_jwt_secret_here
 REDIS_URL=redis://127.0.0.1:6379/0
+PLAID_API_KEY=client_id_123456789
+NACHA_API_KEY=
 EOL
 
 echo "Setup complete. PostgreSQL, Tor, and Redis are running."

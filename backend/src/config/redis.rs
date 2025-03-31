@@ -1,3 +1,4 @@
+// redis.rs - Initializes a Redis connection manager.
 use redis::aio::ConnectionManager;
 use redis::Client;
 use std::env;

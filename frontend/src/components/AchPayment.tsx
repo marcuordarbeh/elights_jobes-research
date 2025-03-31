@@ -1,10 +1,9 @@
+// AchPayment.tsx - Component to generate random ACH details.
 import React, { useState } from 'react';
 import axios from 'axios';
 
 const AchPayment: React.FC = () => {
-  const [accountNumber, setAccountNumber] = useState('');
-  const [routingNumber, setRoutingNumber] = useState('');
-  const [bankName, setBankName] = useState('');
+  const [details, setDetails] = useState<{ accountNumber?: string; routingNumber?: string; bankName?: string }>({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -12,13 +11,10 @@ const AchPayment: React.FC = () => {
     setLoading(true);
     setMessage('');
     try {
-      // The backend should return random ACH details
-      const response = await axios.get('/api/generate_ach');
-      const { accountNumber, routingNumber, bankName } = response.data;
-      setAccountNumber(accountNumber);
-      setRoutingNumber(routingNumber);
-      setBankName(bankName);
-      setMessage('ACH details generated successfully');
+      // Call the backend endpoint for ACH generation.
+      const response = await axios.post<{ message: string }>('/api/generate_ach');
+      // For demo purposes, assume the response message contains the generated details.
+      setMessage(response.data.message);
     } catch (error: any) {
       console.error('ACH generation failed', error);
       setMessage('Failed to generate ACH details');
@@ -36,19 +32,6 @@ const AchPayment: React.FC = () => {
       >
         {loading ? 'Generating...' : 'Generate ACH Details'}
       </button>
-      {accountNumber && (
-        <div className="mt-4">
-          <p>
-            <strong>Account Number:</strong> {accountNumber}
-          </p>
-          <p>
-            <strong>Routing Number:</strong> {routingNumber}
-          </p>
-          <p>
-            <strong>Bank Name:</strong> {bankName}
-          </p>
-        </div>
-      )}
       {message && <div className="mt-4 text-center">{message}</div>}
     </div>
   );

@@ -10,7 +10,6 @@ services:
     depends_on:
       - db
       - tor
-      - redis
 
   frontend:
     build: ./frontend
@@ -39,10 +38,4 @@ services:
     ports:
       - "9050:9050"
     volumes:
-      - ./tor:/var/lib/systemd/system/tor.service
-
-  redis:
-    image: redis:alpine
-    container_name: payment_redis
-    ports:
-      - "6379:6379"
+      - ./tor:/var/lib/tor/tor.service

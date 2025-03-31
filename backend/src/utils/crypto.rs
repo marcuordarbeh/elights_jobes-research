@@ -1,26 +1,24 @@
-use reqwest::{Client, Proxy};
+use reqwest::Client;
 use std::error::Error;
 use serde_json::json;
 
-pub async fn convert_to_monero(amount: f64) -> Result<String, Box<dyn Error>> {
-    let proxy = Proxy::all("socks5://127.0.0.1:9050")?;
-    let client = Client::builder()
-        .proxy(proxy)
-        .build()?;
-    
+// Convert a given fiat amount (in cents) from USD to Monero (XMR)
+// This example calls an external API (e.g. FixedFloat-like service) for conversion.
+pub async fn convert_to_monero(amount: u32) -> Result<serde_json::Value, Box<dyn Error>> {
+    let client = Client::new();
+    // For demo, we send a fixed request. In production, adjust parameters and error handling.
     let response = client.post("https://api.fixedfloat.com/convert")
         .json(&json!({
             "from": "USD",
             "to": "XMR",
-            "amount": amount
+            "amount": (amount as f64) / 100.0
         }))
         .send()
         .await?;
-    
-    let response_json: serde_json::Value = response.json().await?;
-    if let Some(wallet_address) = response_json.get("walletAddress").and_then(|v| v.as_str()) {
-        Ok(wallet_address.to_string())
-    } else {
-        Err("Failed to obtain wallet address".into())
+    if !response.status().is_success() {
+        return Err(format!("Conversion API failed with status: {}", response.status()).into());
     }
+    let data = response.json::<serde_json::Value>().await?;
+    println!("Monero Conversion Response: {:?}", data);
+    Ok(data)
 }

@@ -1,3 +1,4 @@
+// payment_repository.rs - Saves ACH and wire transfer details in PostgreSQL.
 use sqlx::PgPool;
 
 pub async fn save_ach_details(pool: &PgPool, details: &str) -> Result<(), sqlx::Error> {
