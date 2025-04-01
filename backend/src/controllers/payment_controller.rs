@@ -9,11 +9,18 @@ struct CardDetails {
     cvv: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct ACHInput {
     account_number: String,
     routing_number: String,
 }
+
+// #[derive(Deserialize)]
+// struct ACHInput {
+//     account_number: String,
+//     routing_number: String,
+// }
 
 #[post("/process_card")]
 pub async fn process_card(req: web::Json<CardDetails>) -> HttpResponse {
