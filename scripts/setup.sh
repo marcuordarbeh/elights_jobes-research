@@ -1,23 +1,21 @@
 #!/bin/bash
 # setup.sh - Installs required packages and configures PostgreSQL, Tor, and Redis.
-if [ "$(id -u)" -ne 0 ]; then
-  echo "This script must be run as root. Try 'sudo ./scripts/setup.sh'"
-  exit 1
-fi
 
-echo "Updating packages..."
-apt update
+echo "Updating Homebrew..."
+brew update
 
-echo "Installing Tor, PostgreSQL, and Redis..."
-apt install -y tor postgresql postgresql-contrib redis-server
+echo "Installing PostgreSQL and Redis..."
+brew install postgresql redis
 
-echo "Starting PostgreSQL service..."
-service postgresql start
+echo "Starting PostgreSQL and Redis..."
+brew services start postgresql
+brew services start redis
 
-echo "Setting up PostgreSQL database and user..."
-sudo -u postgres psql -c "CREATE DATABASE payment_system;"
-sudo -u postgres psql -c "CREATE USER payment_user WITH ENCRYPTED PASSWORD 'password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE payment_system TO payment_user;"
+redis = { version = "0.23", features = ["async-std-comp"] }
+psql postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='payment_user'" | grep -q 1 || psql postgres -c "CREATE ROLE payment_user WITH LOGIN PASSWORD 'yourpassword';"
+psql postgres -c "ALTER ROLE payment_user CREATEDB;"
+
+psql postgres -tc "SELECT 1 FROM pg_database WHERE datname='payment_system'" | grep -q 1 || psql postgres -c "CREATE DATABASE payment_system OWNER payment_user;"
 
 if [ -f ./database/init.sql ]; then
   echo "Initializing database schema..."
@@ -33,7 +31,7 @@ echo "Starting Redis service..."
 service redis-server start
 
 echo "Writing environment variables to project root .env file..."
-cat > ../.env <<EOL
+cat > .env <<EOL
 DATABASE_URL=postgres://payment_user:password@localhost:5432/payment_system
 STRIPE_SECRET_KEY=your_stripe_secret_key_here
 JWT_SECRET=your_jwt_secret_here
