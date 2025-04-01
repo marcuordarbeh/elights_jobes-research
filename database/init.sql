@@ -13,6 +13,6 @@ CREATE TABLE ach_details (
 
 CREATE TABLE bank_transfers (
     id SERIAL PRIMARY KEY,
-    bank_name VARCHAR(255) NOT NULL,
-    account_number VARCHAR(255) NOT NULL
+    bank_name TEXT NOT NULL,
+    account_number TEXT NOT NULL
 );

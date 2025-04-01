@@ -74,3 +74,7 @@ To test:
 5. Use API tools (Postman or curl) to call backend endpoints and verify logs.
 
 This complete implementation should get your project up and running as an anonymous, high‑performance payment system. Adjust and secure the integration (especially with your Monero conversion gateway) before production use.
+
+
+
+psql -U payment_user -d payment_system -f ./database/init.sql
