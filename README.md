@@ -77,9 +77,6 @@ This complete implementation should get your project up and running as an anonym
 
 
 
-<<<<<<< HEAD
 install postgresql
 services start pstgresql
-=======
 psql -U payment_user -d payment_system -f ./database/init.sql
->>>>>>> 872dd45067bfa46b269c2ce51dae469217c489a7

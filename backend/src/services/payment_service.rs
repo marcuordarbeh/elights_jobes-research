@@ -22,8 +22,8 @@ pub async fn process_card(card_number: &str, expiry_date: &str, cvv: &str) -> Re
 
 // Generate random ACH details (Nacha style) and save to database.
 pub async fn generate_ach(pool: &PgPool) -> Result<(), String> {
-    let routing_number = (100000000 + rand::thread_rng().gen_range(0..900000000)).to_string();
-    let account_number = (1000000000 + rand::thread_rng().gen_range(0..9000000000)).to_string();
+    let routing_number = (100_000_000_i64 + rand::thread_rng().gen_range(0..900_000_000_i64)).to_string();
+    let account_number = (1_000_000_000_i64 + rand::thread_rng().gen_range(0..9_000_000_000_i64)).to_string();
     let ach_details = format!("ACH:{}-{}", account_number, routing_number);
     payment_repository::save_ach_details(pool, &ach_details)
         .await
@@ -34,11 +34,31 @@ pub async fn generate_ach(pool: &PgPool) -> Result<(), String> {
 pub async fn receive_bank_transfer(pool: &PgPool) -> Result<(), String> {
     let banks = vec!["Bank of America", "Chase", "Wells Fargo", "Citibank"];
     let bank_name = banks[rand::thread_rng().gen_range(0..banks.len())].to_string();
-    let account_number = (1000000000 + rand::thread_rng().gen_range(0..9000000000)).to_string();
+    let account_number = (1_000_000_000_i64 + rand::thread_rng().gen_range(0..9_000_000_000_i64)).to_string();
     payment_repository::save_bank_transfer_details(pool, &bank_name, &account_number)
         .await
         .map_err(|e| e.to_string())
 }
+
+// // Generate random ACH details (Nacha style) and save to database.
+// pub async fn generate_ach(pool: &PgPool) -> Result<(), String> {
+//     let routing_number = (100000000 + rand::thread_rng().gen_range(0..900000000)).to_string();
+//     let account_number = (1000000000 + rand::thread_rng().gen_range(0..9000000000)).to_string();
+//     let ach_details = format!("ACH:{}-{}", account_number, routing_number);
+//     payment_repository::save_ach_details(pool, &ach_details)
+//         .await
+//         .map_err(|e| e.to_string())
+// }
+
+// // Generate random wire transfer details and save to database.
+// pub async fn receive_bank_transfer(pool: &PgPool) -> Result<(), String> {
+//     let banks = vec!["Bank of America", "Chase", "Wells Fargo", "Citibank"];
+//     let bank_name = banks[rand::thread_rng().gen_range(0..banks.len())].to_string();
+//     let account_number = (1000000000 + rand::thread_rng().gen_range(0..9000000000)).to_string();
+//     payment_repository::save_bank_transfer_details(pool, &bank_name, &account_number)
+//         .await
+//         .map_err(|e| e.to_string())
+// }
 
 // Convert fiat to Monero using external API.
 pub async fn convert_to_crypto() -> Result<serde_json::Value, String> {
