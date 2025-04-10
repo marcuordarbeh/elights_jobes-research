@@ -1,11 +1,9 @@
-// AchPayment.tsx - Component to generate random ACH details.
 import React, { useState } from 'react';
 import axios from 'axios';
 
 const AchPayment: React.FC = () => {
-  const [details, setDetails] = useState<{ accountNumber?: string; routingNumber?: string; bankName?: string }>({});
-  const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const generateAchDetails = async () => {
     setLoading(true);
@@ -13,7 +11,6 @@ const AchPayment: React.FC = () => {
     try {
       // Call the backend endpoint for ACH generation.
       const response = await axios.post<{ message: string }>('/api/generate_ach');
-      // For demo purposes, assume the response message contains the generated details.
       setMessage(response.data.message);
     } catch (error: any) {
       console.error('ACH generation failed', error);
@@ -23,7 +20,7 @@ const AchPayment: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-4 bg-white shadow rounded">
+    <div className="max-w-md mx-auto p-4 bg-white shadow rounded">
       <h2 className="text-2xl font-bold mb-4">Generate ACH Payment Details</h2>
       <button
         onClick={generateAchDetails}

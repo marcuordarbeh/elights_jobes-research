@@ -18,22 +18,3 @@ function App() {
 }
 
 export default App;
-
-// import React from 'react';
-// import { Switch, Route, Redirect } from 'react-router-dom';
-// import Dashboard from './components/Dashboard';
-// import PaymentPage from './pages/PaymentPage';
-
-// function App() {
-//   return (
-//     <div className="App">
-//       <Switch>
-//         <Route path="/dashboard" component={Dashboard} />
-//         <Route path="/payment" component={PaymentPage} />
-//         <Redirect from="/" to="/dashboard" />
-//       </Switch>
-//     </div>
-//   );
-// }
-
-// export default App;
