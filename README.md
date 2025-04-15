@@ -1,108 +1,108 @@
-banking-system/
-│
-├── backend/                         # Rust + Actix Backend & Domain Logic
-│   ├── core-api/                    # RESTful API (Actix web server)
-│   │   ├── Cargo.toml
-│   │   ├── main.rs
-│   │   └── src/
-│   │       ├── routes/             # REST API routes
-│   │       │   ├── auth.rs
-│   │       │   ├── payments.rs
-│   │       │   ├── crypto.rs
-│   │       │   └── conversion.rs
-│   │       ├── handlers/           # Request controllers
-│   │       ├── config/
-│   │       │   └── db.rs
-│   │       ├── middlewares/
-│   │       └── main.rs
-│   │
-│   ├── domain/                      # Core domain logic for backend
-│   │   ├── payments/               # Payment engines (ACH, wire, card, etc.)
-│   │   │   ├── ach.rs
-│   │   │   ├── wire.rs
-│   │   │   ├── check.rs
-│   │   │   ├── card.rs
-│   │   │   ├── generator.rs       # Random routing/account/bank name gen
-│   │   │   ├── validator.rs
-│   │   │   └── iso20022.rs        # SWIFT/SEPA support
-│   │   ├── crypto/                # Encryption, wallet ops
-│   │   │   ├── blindae.rs
-│   │   │   ├── zk_proofs.rs
-│   │   │   ├── wallet.rs
-│   │   │   └── utils.rs
-│   │   ├── security/              # Auth, encryption, audit
-│   │   │   ├── auth.rs
-│   │   │   ├── oauth.rs
-│   │   │   ├── tls.rs
-│   │   │   └── audit.rs
-│   │   ├── models/                # Data models
-│   │   │   ├── user.rs
-│   │   │   ├── account.rs
-│   │   │   ├── transaction.rs
-│   │   │   └── mod.rs
-│   │   └── services/              # Business services
-│   │       ├── fraud_detection.rs
-│   │       ├── analytics.rs
-│   │       └── reporting.rs
-│
-├── frontend/                        # React + TypeScript Frontend
-│   ├── package.json
-│   ├── public/
-│   └── src/
-│       ├── App.tsx
-│       ├── index.tsx
-│       ├── components/
-│       │   ├── Dashboard.tsx
-│       │   ├── Login.tsx
-│       │   ├── Register.tsx
-│       │   ├── Payment.tsx
-│       │   └── CryptoConvert.tsx
-│       ├── pages/
-│       ├── services/
-│       └── utils/
-│
-├── database/                        # PostgreSQL + BlindAE
-│   ├── init.sql
-│   ├── schema.rs
-│   ├── migrations/
-│   └── blindae_config/
-│
-├── cryptography-exchange/          # Crypto conversions: BTC, Monero
-│   ├── conversion.rs
-│   ├── btcpay/
-│   │   └── client.rs               # Bitcoin integration
-│   └── monero/
-│       └── client.rs               # Monero integration
-│
-├── tor-network/                     # Tor onion routing
-│   ├── torrc
-│   ├── p2p-network/
-│   │   ├── libp2p.rs
-│   │   ├── noise.rs
-│   │   └── onion_overlay.rs
-│   └── clients/
-│       ├── cli-wallet.rs
-│       └── node.rs
-│
-├── bank-integrations/              # API connectors for USA/EUR banks
-│   ├── usa/
-│   │   ├── jpmorgan.rs
-│   │   ├── wells_fargo.rs
-│   │   └── chase.rs
-│   ├── europe/
-│   │   ├── bnp_paribas.rs
-│   │   ├── deutsche_bank.rs
-│   │   └── santander.rs
-│   └── test_bank_simulators.rs
-│
-├── scripts/                         # Setup / orchestration
-│   ├── setup.sh
-│   ├── start_all.sh
-│   └── env.example
-│
-├── .env                             # Environment variables
-├── docker-compose.yml              # Container orchestration
-└── README.md
+# banking-system/
+# │
+# ├── backend/                         # Rust + Actix Backend & Domain Logic
+# │   ├── core-api/                    # RESTful API (Actix web server)
+# │   │   ├── Cargo.toml
+# │   │   ├── main.rs 
+# │   │   └── src/
+# │   │       ├── routes/             # REST API routes
+# │   │       │   ├── auth.rs
+# │   │       │   ├── payments.rs
+# │   │       │   ├── crypto.rs
+# │   │       │   └── conversion.rs
+# │   │       ├── handlers/           # Request controllers
+# │   │       ├── config/
+# │   │       │   └── db.rs
+# │   │       ├── middlewares/
+# │   │       └── main.rs
+# │   │
+# │   ├── domain/                      # Core domain logic for backend
+# │   │   ├── payments/               # Payment engines (ACH, wire, card, etc.)
+# │   │   │   ├── ach.rs
+# │   │   │   ├── wire.rs
+# │   │   │   ├── check.rs
+# │   │   │   ├── card.rs
+# │   │   │   ├── generator.rs       # Random routing/account/bank name gen
+# │   │   │   ├── validator.rs
+# │   │   │   └── iso20022.rs        # SWIFT/SEPA support
+# │   │   ├── crypto/                # Encryption, wallet ops
+# │   │   │   ├── blindae.rs
+# │   │   │   ├── zk_proofs.rs
+# │   │   │   ├── wallet.rs
+# │   │   │   └── utils.rs
+# │   │   ├── security/              # Auth, encryption, audit
+# │   │   │   ├── auth.rs
+# │   │   │   ├── oauth.rs
+# │   │   │   ├── tls.rs
+# │   │   │   └── audit.rs
+# │   │   ├── models/                # Data models
+# │   │   │   ├── user.rs
+# │   │   │   ├── account.rs
+# │   │   │   ├── transaction.rs
+# │   │   │   └── mod.rs
+# │   │   └── services/              # Business services
+# │   │       ├── fraud_detection.rs
+# │   │       ├── analytics.rs
+# │   │       └── reporting.rs
+# │
+# ├── frontend/                        # React + TypeScript Frontend
+# │   ├── package.json
+# │   ├── public/
+# │   └── src/
+# │       ├── App.tsx
+# │       ├── index.tsx
+# │       ├── components/
+# │       │   ├── Dashboard.tsx
+# │       │   ├── Login.tsx
+# │       │   ├── Register.tsx
+# │       │   ├── Payment.tsx
+# │       │   └── CryptoConvert.tsx
+# │       ├── pages/
+# │       ├── services/
+# │       └── utils/
+# │
+# ├── database/                        # PostgreSQL + BlindAE
+# │   ├── init.sql
+# │   ├── schema.rs
+# │   ├── migrations/
+# │   └── blindae_config/
+# │
+# ├── cryptography-exchange/          # Crypto conversions: BTC, Monero
+# │   ├── conversion.rs
+# │   ├── btcpay/
+# │   │   └── client.rs               # Bitcoin integration
+# │   └── monero/
+# │       └── client.rs               # Monero integration
+# │
+# ├── tor-network/                     # Tor onion routing
+# │   ├── torrc
+# │   ├── p2p-network/
+# │   │   ├── libp2p.rs
+# │   │   ├── noise.rs
+# │   │   └── onion_overlay.rs
+# │   └── clients/
+# │       ├── cli-wallet.rs
+# │       └── node.rs
+# │
+# ├── bank-integrations/              # API connectors for USA/EUR banks
+# │   ├── usa/
+# │   │   ├── jpmorgan.rs
+# │   │   ├── wells_fargo.rs
+# │   │   └── chase.rs
+# │   ├── europe/
+# │   │   ├── bnp_paribas.rs
+# │   │   ├── deutsche_bank.rs
+# │   │   └── santander.rs
+# │   └── test_bank_simulators.rs
+# │
+# ├── scripts/                         # Setup / orchestration
+# │   ├── setup.sh
+# │   ├── start_all.sh
+# │   └── env.example
+# │
+# ├── .env                             # Environment variables
+# ├── docker-compose.yml              # Container orchestration
+# └── README.md
 
 
 # Payment System
