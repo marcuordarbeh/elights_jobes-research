@@ -1,18 +1,22 @@
 [package]
-name = "payment-system"
+name = "core-api"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 actix-web = "4"
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 jsonwebtoken = "8.1"
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
+diesel = { version = "2.0", features = ["postgres", "chrono", "serde_json"] }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio"] }
 bcrypt = "0.10"
 rand = "0.8"
 dotenv = "0.15"
+dotenv = "0.15"
+env_logger = "0.10"
+log = "0.4"
 async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
-reqwest = { version = "0.11", features = ["json"] }

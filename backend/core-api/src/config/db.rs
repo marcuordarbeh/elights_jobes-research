@@ -1,10 +1,7 @@
-// db.rs - Initializes a PostgreSQL connection pool using SQLx.
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use dotenv::dotenv;
+use std::env;
 
-pub async fn init_pool(database_url: &str) -> Pool<Postgres> {
-    PgPoolOptions::new()
-        .max_connections(5)
-        .connect(database_url)
-        .await
-        .expect("Failed to create pool.")
+pub fn get_database_url() -> String {
+    dotenv().ok();
+    env::var("DATABASE_URL").expect("DATABASE_URL must be set in .env file")
 }

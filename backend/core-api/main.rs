@@ -1,55 +1,31 @@
-// main.rs - Entry point for the Rust backend.
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer, middleware::Logger};
 use dotenv::dotenv;
 use std::env;
 
+// Import route initializers
+mod routes;
 mod config;
-mod controllers;
-mod models;
-mod repositories;
-mod services;
-mod utils;
+mod middlewares;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Load environment variables from .env file
     dotenv().ok();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let db_pool = config::db::init_pool(&database_url).await;
+    env_logger::init();
+    
+    let server_address = env::var("SERVER_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
+    
+    println!("🚀 Starting server at http://{}", server_address);
 
-    HttpServer::new(move || {
+    HttpServer::new(|| {
         App::new()
-            .app_data(web::Data::new(db_pool.clone()))
-            // No auth middleware; anonymous access.
-            .configure(controllers::init_routes)
+            .wrap(Logger::default()) // Using built-in logger middleware
+            .configure(routes::auth::init)
+            .configure(routes::payments::init)
+            .configure(routes::crypto::init)
+            .configure(routes::conversion::init)
     })
-    .bind("0.0.0.0:8080")?
+    .bind(server_address)?
     .run()
     .await
 }
-
-// use actix_web::{web, App, HttpServer};
-// use dotenv::dotenv;
-// use std::env;
-// mod config;
-// mod controllers;
-// mod models;
-// mod repositories;
-// mod services;
-// mod utils;
-
-// #[actix_web::main]
-// async fn main() -> std::io::Result<()> {
-//     dotenv().ok();
-//     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-//     let db_pool = config::db::init_pool(&database_url).await;
-
-//     HttpServer::new(move || {
-//         App::new()
-//             .app_data(web::Data::new(db_pool.clone()))
-//             // Removed AuthMiddleware for anonymous access.
-//             .configure(controllers::init_routes)
-//     })
-//     .bind("0.0.0.0:8080")?
-//     .run()
-//     .await
-// }
