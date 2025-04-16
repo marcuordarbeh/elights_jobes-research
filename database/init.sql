@@ -1,18 +1,32 @@
--- init.sql - Database schema for payment system.
-CREATE TABLE users (
+-- Create user and database
+CREATE USER core_user WITH PASSWORD 'securepassword';
+CREATE DATABASE core_db OWNER core_user;
+
+-- Connect to the database and create schema
+\c core_db
+CREATE SCHEMA IF NOT EXISTS core_schema AUTHORIZATION core_user;
+
+-- Create tables
+CREATE TABLE core_schema.users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL
 );
 
-CREATE TABLE ach_details (
+CREATE TABLE core_schema.accounts (
     id SERIAL PRIMARY KEY,
-    details TEXT NOT NULL
+    user_id INTEGER REFERENCES core_schema.users(id),
+    account_number TEXT NOT NULL,
+    routing_number TEXT NOT NULL,
+    bank_name TEXT NOT NULL
 );
 
-CREATE TABLE bank_transfers (
+CREATE TABLE core_schema.transactions (
     id SERIAL PRIMARY KEY,
-    bank_name TEXT NOT NULL,
-    account_number TEXT NOT NULL
+    account_id INTEGER REFERENCES core_schema.accounts(id),
+    amount NUMERIC NOT NULL,
+    currency TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+    status TEXT NOT NULL
 );

@@ -1,41 +1,42 @@
 version: '3.8'
+
 services:
-  backend:
-    build: ./backend
-    container_name: payment_backend
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - tor
-
-  frontend:
-    build: ./frontend
-    container_name: payment_frontend
-    ports:
-      - "3000:3000"
-    stdin_open: true
-    tty: true
-
-  db:
+  postgres:
     image: postgres:13
-    container_name: payment_db
     environment:
-      POSTGRES_DB: payment_system
-      POSTGRES_USER: payment_user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: core_user
+      POSTGRES_PASSWORD: securepassword
+      POSTGRES_DB: core_db
     volumes:
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
 
+  btcpay:
+    image: btcpayserver/btcpayserver:latest
+    environment:
+      BTCPAY_API_KEY: ${BTCPAY_API_KEY}
+    ports:
+      - "23000:23000"
+
+  monero-wallet:
+    image: monero-wallet-rpc
+    environment:
+      MONERO_WALLET_RPC: ${MONERO_WALLET_RPC}
+      MONERO_WALLET_USER: ${MONERO_WALLET_USER}
+      MONERO_WALLET_PASSWORD: ${MONERO_WALLET_PASSWORD}
+    ports:
+      - "18082:18082"
+
   tor:
     image: dperson/torproxy
-    container_name: payment_tor
-    command: "-socksPort 9050 -hiddenServiceDir /var/lib/tor/tor.service/ -hiddenServicePort 80 127.0.0.1:8080"
+    environment:
+      TOR_SOCKS_PORT: ${TOR_SOCKS_PORT}
+      TOR_CONTROL_PORT: ${TOR_CONTROL_PORT}
+      TOR_PASSWORD: ${TOR_PASSWORD}
     ports:
-      - "9050:9050"
-    volumes:
-      - ./tor:/var/lib/tor/tor.service
+      - "${TOR_SOCKS_PORT}:${TOR_SOCKS_PORT}"
+      - "${TOR_CONTROL_PORT}:${TOR_CONTROL_PORT}"
+
+volumes:
+  postgres_data:

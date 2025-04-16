@@ -225,3 +225,26 @@ Modular Testing and Security Audits:
 
 Compliance and Regulatory Considerations:
  – Even if your system is architected with decentralized alternatives and non-custodial protocols, ensure that the design can adapt to regulatory requirements. This may include secure logging, audit trails, or even optional KYC integrations for specific high-risk transactions.
+
+
+Organize your migrations using Diesel's CLI:
+
+bash
+Copy
+Edit
+diesel migration generate create_users
+diesel migration generate create_accounts
+diesel migration generate create_transactions
+
+To apply these migrations, use the Diesel CLI:​
+Hacking with Rust
++5
+diesel.rs
++5
+Stack Overflow
++5
+
+bash
+Copy
+Edit
+diesel migration run

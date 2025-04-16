@@ -1,4 +1,4 @@
 SocksPort 9050
-Log notice stdout
-HiddenServiceDir /var/lib/tor/hidden_service/
-HiddenServicePort 80 127.0.0.1:8080
+ControlPort 9051
+HashedControlPassword 16:YOUR_HASHED_PASSWORD_HERE
+CookieAuthentication 1

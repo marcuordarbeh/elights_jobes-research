@@ -1,0 +1,6 @@
+# database/blindae_config/config.toml
+
+[blindae]
+encryption_key = "your_encryption_key_here"
+api_endpoint = "https://blindae.example.com/api"
+timeout_seconds = 30
