@@ -3,6 +3,13 @@ name = "core-api"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "core-api"
+path = "main.rs"
+
 [dependencies]
 actix-web = "4"
 rand = "0.8"
@@ -14,8 +21,6 @@ diesel = { version = "2.0", features = ["postgres", "chrono", "serde_json"] }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.7", features = ["postgres", "runtime-tokio"] }
 bcrypt = "0.10"
-rand = "0.8"
-dotenv = "0.15"
 dotenv = "0.15"
 env_logger = "0.10"
 log = "0.4"

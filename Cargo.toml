@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "backend/core-api",
+  "domain",
+  "cryptography-exchange",
+  "tor-network",
+  "bank-integrations",
+]
