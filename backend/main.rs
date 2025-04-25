@@ -1,6 +1,7 @@
 use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 use std::env;
+use crate::security::tls::load_tls_config;
 
 mod config;
 mod controllers;
@@ -22,6 +23,7 @@ async fn main() -> std::io::Result<()> {
             .configure(controllers::init_routes)
     })
     .bind("0.0.0.0:8080")?
+    .bind_rustls((bs_cfg.host.clone(), bs_cfg.port), load_tls_config(&bs_cfg.server_cert, &bs_cfg.server_key))?
     .run()
     .await
 }

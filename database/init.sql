@@ -30,3 +30,23 @@ CREATE TABLE core_schema.transactions (
     transaction_type TEXT NOT NULL,
     status TEXT NOT NULL
 );
+
+CREATE TABLE bank_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_number VARCHAR(20) UNIQUE NOT NULL,
+  routing_number VARCHAR(9),
+  currency VARCHAR(3) CHECK (currency IN ('USD', 'EUR')),
+  balance DECIMAL(18, 2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE TABLE transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID REFERENCES bank_accounts(id),
+  tx_type VARCHAR(10) CHECK (tx_type IN ('ACH', 'WIRE', 'CARD')),
+  amount DECIMAL(18, 2),
+  direction VARCHAR(5) CHECK (direction IN ('IN', 'OUT')),
+  status VARCHAR(10) DEFAULT 'PENDING',
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT now()
+);

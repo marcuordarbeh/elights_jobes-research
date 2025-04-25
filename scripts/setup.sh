@@ -13,6 +13,9 @@ cp scripts/env.example .env
 
 echo "Setup complete."
 
+sudo ufw insert 1 allow from $FT_ASSET_IP to any port $BANK_PORT proto tcp  # :contentReference[oaicite:12]{index=12}
+sudo ufw reload
+
 # #!/bin/bash
 # # setup.sh - Installs required packages and configures PostgreSQL, Tor, and Redis.
 

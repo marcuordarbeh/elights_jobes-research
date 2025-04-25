@@ -38,3 +38,21 @@ diesel::allow_tables_to_appear_in_same_query!(
     accounts,
     transactions,
 );
+
+#[derive(Deserialize)]
+struct TransactionPayload {
+    account_number: String,
+    amount: f64,
+    tx_type: String, // ACH, WIRE, CARD
+    direction: String, // IN or OUT
+}
+
+#[post("/transactions")]
+async fn create_tx(
+    db: web::Data<DbPool>,
+    payload: web::Json<TransactionPayload>
+) -> impl Responder {
+    // Fetch account, insert transaction, process balance
+    // Encrypt sensitive fields if using BlindAE
+    HttpResponse::Ok().json(json!({ "status": "success" }))
+}
