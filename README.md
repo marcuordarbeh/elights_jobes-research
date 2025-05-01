@@ -1,108 +1,66 @@
-banking-system/
-│
-├── backend/                         # Rust + Actix Backend & Domain Logic
-│   ├── core-api/                    # RESTful API (Actix web server)
-│   │   ├── Cargo.toml
-│   │   ├── main.rs 
-│   │   └── src/
-│   │       ├── routes/             # REST API routes
-│   │       │   ├── auth.rs
-│   │       │   ├── payments.rs
-│   │       │   ├── crypto.rs
-│   │       │   └── conversion.rs
-│   │       ├── handlers/           # Request controllers
-│   │       ├── config/
-│   │       │   └── db.rs
-│   │       ├── middlewares/
-│   │       └── main.rs
-│   │
-│   ├── domain/                      # Core domain logic for backend
-│   │   ├── payments/               # Payment engines (ACH, wire, card, etc.)
-│   │   │   ├── ach.rs
-│   │   │   ├── wire.rs
-│   │   │   ├── check.rs
-│   │   │   ├── card.rs
-│   │   │   ├── generator.rs       # Random routing/account/bank name gen
-│   │   │   ├── validator.rs
-│   │   │   └── iso20022.rs        # SWIFT/SEPA support
-│   │   ├── crypto/                # Encryption, wallet ops
-│   │   │   ├── blindae.rs
-│   │   │   ├── zk_proofs.rs
-│   │   │   ├── wallet.rs
-│   │   │   └── utils.rs
-│   │   ├── security/              # Auth, encryption, audit
-│   │   │   ├── auth.rs
-│   │   │   ├── oauth.rs
-│   │   │   ├── tls.rs
-│   │   │   └── audit.rs
-│   │   ├── models/                # Data models
-│   │   │   ├── user.rs
-│   │   │   ├── account.rs
-│   │   │   ├── transaction.rs
-│   │   │   └── mod.rs
-│   │   └── services/              # Business services
-│   │       ├── fraud_detection.rs
-│   │       ├── analytics.rs
-│   │       └── reporting.rs
-│
-├── frontend/                        # React + TypeScript Frontend
-│   ├── package.json
-│   ├── public/
-│   └── src/
-│       ├── App.tsx
-│       ├── index.tsx
-│       ├── components/
-│       │   ├── Dashboard.tsx
-│       │   ├── Login.tsx
-│       │   ├── Register.tsx
-│       │   ├── Payment.tsx
-│       │   └── CryptoConvert.tsx
-│       ├── pages/
-│       ├── services/
-│       └── utils/
-│
-├── database/                        # PostgreSQL + BlindAE
-│   ├── init.sql
-│   ├── schema.rs
-│   ├── migrations/
-│   └── blindae_config/
-│
-├── cryptography-exchange/          # Crypto conversions: BTC, Monero
-│   ├── conversion.rs
-│   ├── btcpay/
-│   │   └── client.rs               # Bitcoin integration
-│   └── monero/
-│       └── client.rs               # Monero integration
-│
-├── tor-network/                     # Tor onion routing
-│   ├── torrc
-│   ├── p2p-network/
-│   │   ├── libp2p.rs
-│   │   ├── noise.rs
-│   │   └── onion_overlay.rs
-│   └── clients/
-│       ├── cli-wallet.rs
-│       └── node.rs
-│
-├── bank-integrations/              # API connectors for USA/EUR banks
-│   ├── usa/
-│   │   ├── jpmorgan.rs
-│   │   ├── wells_fargo.rs
-│   │   └── chase.rs
-│   ├── europe/
-│   │   ├── bnp_paribas.rs
-│   │   ├── deutsche_bank.rs
-│   │   └── santander.rs
-│   └── test_bank_simulators.rs
-│
-├── scripts/                         # Setup / orchestration
-│   ├── setup.sh
-│   ├── start_all.sh
-│   └── env.example
-│
-├── .env                             # Environment variables
-├── docker-compose.yml              # Container orchestration
-└── README.md
+elights_jobes-research/
+├── .github/               # GitHub specific files (e.g., workflows, issue templates)
+├── .gitattributes         # Git attributes file
+├── .gitignore             # Files/directories for Git to ignore
+├── backend/               # Backend services and logic
+│   ├── core-api/          # Main backend API service (likely Rust)
+│   │   ├── src/           # Source code
+│   │   │   ├── config/    # Configuration files (db.rs, bank_server.rs, etc.) [cite: 2]
+│   │   │   ├── handlers/  # Request handlers (auth.rs, payments.rs, crypto.rs, etc.) [cite: 4, 5, 6, 7]
+│   │   │   ├── middlewares/ # Middleware (ip_whitelist.rs, logger.rs)
+│   │   │   ├── routes/    # API routes definition (auth.rs, crypto.rs, payment_rout.rs, etc.)
+│   │   │   └── main.rs    # Main application entry point
+│   │   ├── tests/         # Integration and unit tests (integration.rs)
+│   │   ├── utils/         # Utility functions (crypto.rs) [cite: 4]
+│   │   ├── Cargo.toml     # Rust package manifest
+│   │   └── .env           # Environment variables for core-api
+│   ├── domain/            # Core domain logic and models (separate crate/library)
+│   │   ├── crypto/        # Cryptography related domain logic (wallet.rs, zk_proofs.rs, blindae.rs) [cite: 4]
+│   │   ├── models/        # Data models (user.rs, account.rs, transaction.rs)
+│   │   ├── payments/      # Payment processing domain logic (ach.rs, card.rs, wire.rs, iso20022.rs) [cite: 5, 6, 7, 9, 10]
+│   │   ├── security/      # Security related logic (auth.rs, audit.rs, tls.rs)
+│   │   ├── services/      # Business services (analytics.rs, fraud_detection.rs)
+│   │   └── Cargo.toml     # Rust package manifest for domain
+│   ├── Dockerfile         # Dockerfile for building the backend
+│   └── main.rs            # Potentially a workspace root or another service entry point?
+├── bank-integrations/     # Integration code for various banks
+│   ├── usa/               # Integrations for US banks (chase.rs, jpmorgan.rs, etc.)
+│   ├── europe/            # Integrations for European banks (bnp_paribas.rs, deutsche_bank.rs, etc.) [cite: 9]
+│   └── simulators/        # Bank simulators for testing (test_bank_simulators.rs)
+├── cryptography-exchange/ # Integration code for cryptocurrency exchanges/protocols
+│   ├── btcpay/            # BTCPay specific integration [cite: 3]
+│   │   └── client.rs
+│   ├── monero/            # Monero specific integration [cite: 4]
+│   │   └── client.rs      # (Seems like a duplicate name, might need renaming or restructuring)
+│   └── conversion.rs      # Crypto conversion logic
+├── database/              # Database related files
+│   ├── migrations/        # Database migration scripts (SQL files for creating users, accounts, etc.) [cite: 2]
+│   ├── blindae_config/    # Configuration for BlindAE (?) (config.toml) [cite: 4]
+│   ├── init.sql           # Initialization script
+│   └── schema.rs          # Schema definitions (potentially generated, e.g., by Diesel for Rust)
+├── frontend/              # Frontend application (likely React/TypeScript)
+│   ├── public/            # Static assets (index.html, images/)
+│   ├── src/               # Frontend source code
+│   │   ├── components/    # Reusable UI components (Dashboard.tsx, Payment.tsx, CryptoConversion.tsx, etc.) [cite: 3, 5, 6]
+│   │   ├── pages/         # Page-level components (DashboardPage.tsx, LandingPage.tsx, etc.)
+│   │   ├── services/      # API service integrations
+│   │   └── utils/         # Utility functions
+│   ├── node_modules/      # (Typically ignored by Git)
+│   ├── Dockerfile         # Dockerfile for building the frontend
+│   ├── package.json       # Node.js package manifest
+│   ├── tsconfig.json      # TypeScript configuration
+│   └── tailwind.config.js # Tailwind CSS configuration
+├── scripts/               # Utility and setup scripts
+│   ├── setup.sh           # Project setup script
+│   ├── start_all.sh       # Script to start all services
+│   └── env.example        # Example environment file
+├── tor-network/           # Tor network integration components [cite: 1]
+│   ├── clients/           # Tor client implementations (cli-wallet.rs, node.rs)
+│   ├── p2p-network/       # Peer-to-peer networking logic (libp2p.rs, onion_overlay.rs)
+│   └── torrc              # Tor configuration file
+├── docker-compose.yml     # Docker Compose file for running services together
+├── .env                   # Root environment variables
+└── README.md              # Project README file
 
 
 # Payment System

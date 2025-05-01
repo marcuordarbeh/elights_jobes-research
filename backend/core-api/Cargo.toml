@@ -1,27 +1,60 @@
+# /home/inno/elights_jobes-research/backend/core-api/Cargo.toml
 [package]
 name = "core-api"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-path = "src/lib.rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# Define the library target if needed (e.g., for integration tests)
+# [lib]
+# path = "src/lib.rs"
+
+# Define the main binary target
 [[bin]]
 name = "core-api"
-path = "main.rs"
+path = "src/main.rs"
 
 [dependencies]
 actix-web = "4"
-rand = "0.8"
+actix-rt = "2" # Actix runtime
+actix-service = "2" # For custom middleware
+actix-cors = "0.6" # For CORS handling if needed
+# actix-ip-filter = "0.2" # As used in snippet, check for updates/alternatives
+
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-jsonwebtoken = "8.1"
-redis = { version = "0.23", features = ["tokio-comp", "connection-manager"] }
-diesel = { version = "2.0", features = ["postgres", "chrono", "serde_json"] }
-tokio = { version = "1", features = ["full"] }
-sqlx = { version = "0.7", features = ["postgres", "runtime-tokio"] }
-bcrypt = "0.10"
 dotenv = "0.15"
 env_logger = "0.10"
 log = "0.4"
-async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
+futures = "0.3" # For async middleware
+tokio = { version = "1", features = ["full"] } # Async runtime
+thiserror = "1.0"
+
+# Database (Choose one ORM/driver, e.g., SQLx)
+sqlx = { version = "0.7", features = [ "runtime-tokio", "postgres", "macros", "chrono", "uuid", "json", "rust_decimal" ] }
+# Or Diesel:
+# diesel = { version = "2.1", features = ["postgres", "chrono", "uuid", "serde_json", "r2d2"] }
+
+# Security & Auth
+rustls = "0.21" # Check for latest compatible version
+rustls-pemfile = "1.0"
+# jsonwebtoken = "8" # Uncomment and add version if implementing JWT
+# bcrypt = "0.14" # Uncomment and add version if implementing password hashing
+
+# Workspace Dependencies (adjust paths if needed)
+domain = { path = "../domain" }
+cryptography-exchange = { path = "../../cryptography-exchange" }
+bank-integrations = { path = "../../bank-integrations" }
+# tor-network = { path = "../../tor-network" } # Uncomment if core-api directly interacts with tor-network crate
+
+# Other utilities
+uuid = { version = "1", features = ["v4", "serde"] }
+rust_decimal = { version = "1", features = ["serde"] }
+rust_decimal_macros = "1"
+rand = "0.8" # For generating IDs if needed
+
+[dev-dependencies]
+actix-http = "3"
+actix-test = "0.1"
+reqwest = { version = "0.11", features = ["json"] } # For integration tests calling the API

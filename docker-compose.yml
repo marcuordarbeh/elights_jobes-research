@@ -1,42 +1,98 @@
+# /home/inno/elights_jobes-research/docker-compose.yml
 version: '3.8'
 
 services:
+  # PostgreSQL Database Service [cite: 2]
   postgres:
-    image: postgres:13
+    image: postgres:15 # Using PostgreSQL 15 as per documentation [cite: 2]
     environment:
-      POSTGRES_USER: core_user
-      POSTGRES_PASSWORD: securepassword
-      POSTGRES_DB: core_db
+      # Define user, password, and database name [cite: 10841, 13802]
+      POSTGRES_USER: ${POSTGRES_USER:-core_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+      POSTGRES_DB: ${POSTGRES_DB:-core_db}
     volumes:
+      # Persist database data [cite: 10841]
       - postgres_data:/var/lib/postgresql/data
+      # Optional: Mount init script for initial setup [cite: 10880]
+      # - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      # Expose PostgreSQL port [cite: 10841]
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-core_user} -d ${POSTGRES_DB:-core_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # BTCPay Server (Optional - depending on direct integration needs vs. client lib) [cite: 3]
   btcpay:
     image: btcpayserver/btcpayserver:latest
     environment:
+      # Required API key for interaction [cite: 10841]
       BTCPAY_API_KEY: ${BTCPAY_API_KEY}
+      # Add other necessary BTCPay env vars based on its documentation
     ports:
-      - "23000:23000"
+      # Expose BTCPay port [cite: 10841]
+      - "${BTCPAY_PORT:-23000}:23000" # Default BTCPay port might differ
+    restart: unless-stopped
 
+  # Monero Wallet RPC Service [cite: 4]
   monero-wallet:
-    image: monero-wallet-rpc
+    # Replace with the actual image name if you have a custom build
+    # or find a suitable public image for monero-wallet-rpc
+    image: monero-wallet-rpc-placeholder:latest
     environment:
-      MONERO_WALLET_RPC: ${MONERO_WALLET_RPC}
-      MONERO_WALLET_USER: ${MONERO_WALLET_USER}
-      MONERO_WALLET_PASSWORD: ${MONERO_WALLET_PASSWORD}
+      # RPC connection details [cite: 10842]
+      MONERO_WALLET_RPC_BIND_IP: 0.0.0.0
+      MONERO_WALLET_RPC_LOGIN: ${MONERO_WALLET_USER}:${MONERO_WALLET_PASSWORD}
+      # Add other necessary Monero Wallet RPC env vars
+      # MONERO_WALLET_RPC: ${MONERO_WALLET_RPC} # Likely configured via args or config file
     ports:
-      - "18082:18082"
+      # Expose Monero Wallet RPC port [cite: 10842]
+      - "${MONERO_WALLET_RPC_PORT:-18082}:18082"
+    restart: unless-stopped
+    # Add healthcheck if possible
 
+  # Tor Proxy Service [cite: 1]
   tor:
-    image: dperson/torproxy
+    image: dperson/torproxy # Using the specified image [cite: 10842]
     environment:
-      TOR_SOCKS_PORT: ${TOR_SOCKS_PORT}
-      TOR_CONTROL_PORT: ${TOR_CONTROL_PORT}
-      TOR_PASSWORD: ${TOR_PASSWORD}
+      # Tor configuration details [cite: 10842]
+      TOR_SOCKS_PORT: ${TOR_SOCKS_PORT:-9050}
+      TOR_CONTROL_PORT: ${TOR_CONTROL_PORT:-9051}
+      TOR_PASSWORD: ${TOR_PASSWORD:-your_tor_password} # Use a strong password
     ports:
-      - "${TOR_SOCKS_PORT}:${TOR_SOCKS_PORT}"
-      - "${TOR_CONTROL_PORT}:${TOR_CONTROL_PORT}"
+      # Expose Tor SOCKS and Control ports [cite: 10842]
+      - "${TOR_SOCKS_PORT:-9050}:${TOR_SOCKS_PORT:-9050}"
+      - "${TOR_CONTROL_PORT:-9051}:${TOR_CONTROL_PORT:-9051}"
+    restart: unless-stopped
+    # Consider adding torrc configuration volume if needed [cite: 12009]
+
+  # Backend Core API Service (Add this service)
+  core-api:
+    build:
+      context: ./backend/core-api
+      dockerfile: ../Dockerfile # Assuming Dockerfile is in backend/
+    ports:
+      - "${CORE_API_PORT:-8080}:8080" # Expose API port
+    environment:
+      # Pass necessary environment variables from .env file
+      DATABASE_URL: ${DATABASE_URL}
+      # Add other env vars required by the API (JWT secrets, etc.)
+    depends_on:
+      postgres:
+        condition: service_healthy # Wait for postgres to be healthy [cite: 13856]
+      tor:
+        condition: service_started # Wait for tor to start
+      # Add depends_on for btcpay and monero-wallet if needed
+    restart: unless-stopped
 
 volumes:
+  # Define persistent volume for PostgreSQL data [cite: 10841]
   postgres_data:
+
+networks:
+  # Optional: Define a network for services to communicate
+  default:
+    driver: bridge

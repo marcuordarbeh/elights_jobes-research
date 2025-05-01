@@ -1,4 +1,18 @@
-SocksPort 9050
-ControlPort 9051
-HashedControlPassword 16:YOUR_HASHED_PASSWORD_HERE
-CookieAuthentication 1
+# /home/inno/elights_jobes-research/tor-network/torrc
+# Example Tor configuration file for a client or relay node.
+# This would typically be used by a separate Tor daemon process,
+# not directly by the Rust application unless using specific Tor libraries.
+
+# Example Client Configuration:
+SocksPort 9050 # Default SOCKS port specified in docker-compose.yml
+# ControlPort 9051 # If needed for control connections
+# HashedControlPassword ... # If TOR_PASSWORD is set
+
+# Example Relay Configuration (Requires more setup):
+# ORPort 9001
+# Nickname ElightsJobesRelay
+# ContactInfo your_email@example.com
+# ExitPolicy reject *:* # Example: non-exit relay
+
+# Note: Consult official Tor documentation for detailed configuration options.
+# https://community.torproject.org/relay/setup/configuration/

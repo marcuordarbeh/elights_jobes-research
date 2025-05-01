@@ -1,6 +1,29 @@
+# /home/inno/elights_jobes-research/backend/domain/Cargo.toml
 [package]
 name = "domain"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { version = "1", features = ["serde"] } # For precise money handling
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "1.0" # For custom error types
+iso_4217 = "0.4" # For currency codes
+iso_country = "0.4" # For country codes
+iban = "0.5" # For IBAN validation/handling
+swift = "0.2" # For SWIFT BIC validation/handling (consider alternatives if needed)
+rand = "0.8" # For generating random elements if needed [cite: 10778]
+
+# Add crypto dependencies as needed (consider workspace dependencies)
+# Example for Monero related types if not handled in cryptography-exchange crate
+# monero = { version = "0.17", optional = true } # Example, check latest [cite: 10897, 10900]
+
+# Add payment standard libraries (ISO 20022, etc.) if available
+# iso20022 = { version = "...", optional = true } # Placeholder
+
+[features]
+# Add features if needed, e.g., for different payment types
+# default = []
+# crypto = ["dep:monero"]

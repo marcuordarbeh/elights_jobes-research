@@ -1,52 +1,23 @@
--- Create user and database
-CREATE USER core_user WITH PASSWORD 'securepassword';
-CREATE DATABASE core_db OWNER core_user;
+-- /home/inno/elights_jobes-research/database/init.sql
 
--- Connect to the database and create schema
-\c core_db
-CREATE SCHEMA IF NOT EXISTS core_schema AUTHORIZATION core_user;
+-- Best practice: Use environment variables in production instead of hardcoding user/password.
+-- This script is often run automatically by the postgres docker image.
+-- CREATE USER core_user WITH PASSWORD 'securepassword'; -- User created by Docker env vars
+-- CREATE DATABASE core_db OWNER core_user; -- DB created by Docker env vars
 
--- Create tables
-CREATE TABLE core_schema.users (
-    id SERIAL PRIMARY KEY,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
-);
+-- Connect to the database (psql command, not needed in init script run by docker)
+-- \c core_db
 
-CREATE TABLE core_schema.accounts (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES core_schema.users(id),
-    account_number TEXT NOT NULL,
-    routing_number TEXT NOT NULL,
-    bank_name TEXT NOT NULL
-);
+-- Create the schema if it doesn't exist and set owner
+CREATE SCHEMA IF NOT EXISTS core_schema AUTHORIZATION ${POSTGRES_USER:-core_user};
 
-CREATE TABLE core_schema.transactions (
-    id SERIAL PRIMARY KEY,
-    account_id INTEGER REFERENCES core_schema.accounts(id),
-    amount NUMERIC NOT NULL,
-    currency TEXT NOT NULL,
-    transaction_type TEXT NOT NULL,
-    status TEXT NOT NULL
-);
+-- Optional: Set default search path for the user
+-- ALTER ROLE ${POSTGRES_USER:-core_user} SET search_path TO core_schema, public;
 
-CREATE TABLE bank_accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_number VARCHAR(20) UNIQUE NOT NULL,
-  routing_number VARCHAR(9),
-  currency VARCHAR(3) CHECK (currency IN ('USD', 'EUR')),
-  balance DECIMAL(18, 2) DEFAULT 0,
-  created_at TIMESTAMP DEFAULT now()
-);
+-- Grant usage to the schema owner
+GRANT USAGE ON SCHEMA core_schema TO ${POSTGRES_USER:-core_user};
 
-CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id UUID REFERENCES bank_accounts(id),
-  tx_type VARCHAR(10) CHECK (tx_type IN ('ACH', 'WIRE', 'CARD')),
-  amount DECIMAL(18, 2),
-  direction VARCHAR(5) CHECK (direction IN ('IN', 'OUT')),
-  status VARCHAR(10) DEFAULT 'PENDING',
-  metadata JSONB,
-  created_at TIMESTAMP DEFAULT now()
-);
+-- Note: Table creation is handled by migrations (up.sql files)
+-- Ensure necessary extensions like pgcrypto or uuid-ossp are enabled if needed
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; -- If using UUIDs [cite: 10885]
+-- CREATE EXTENSION IF NOT EXISTS pgcrypto; -- If using pgcrypto functions [cite: 13851]

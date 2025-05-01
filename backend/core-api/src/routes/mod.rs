@@ -1,15 +1,21 @@
-// mod.rs - Registers API routes.
+// /home/inno/elights_jobes-research/backend/core-api/src/routes/mod.rs
 use actix_web::web;
 
-mod payment_controller;
-// Note: All auth controllers are removed.
+// Import route modules
+pub mod auth;
+pub mod payments;
+pub mod crypto;
+pub mod conversion;
+// Add other route modules if needed
 
-pub fn init_routes(cfg: &mut web::ServiceConfig) {
+/// Configures all API routes under the `/api/v1` scope.
+pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/api")
-            .service(payment_controller::process_card)
-            .service(payment_controller::generate_ach)
-            .service(payment_controller::receive_bank_transfer)
-            .service(payment_controller::convert_to_crypto),
+        web::scope("/api/v1") // Use versioned API path
+            .configure(auth::configure_auth_routes)
+            .configure(payments::configure_payment_routes)
+            .configure(crypto::configure_crypto_routes)
+            .configure(conversion::configure_conversion_routes)
+            // Add configurations for other route modules here
     );
 }

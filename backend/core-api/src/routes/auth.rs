@@ -1,8 +1,13 @@
-// backend/core-api/src/routes/auth.rs
+// /home/inno/elights_jobes-research/backend/core-api/src/routes/auth.rs
 use actix_web::web;
+use crate::handlers::auth::{login, register}; // Import handlers
 
-pub fn init(cfg: &mut web::ServiceConfig) {
-    cfg.service(web::resource("/auth/login").route(web::post().to(super::handlers::auth::login)))
-       .service(web::resource("/auth/register").route(web::post().to(super::handlers::auth::register)));
+/// Configures authentication related routes.
+pub fn configure_auth_routes(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/auth") // Scope for auth endpoints
+            .route("/login", web::post().to(login))
+            .route("/register", web::post().to(register))
+            // Add other auth routes like /refresh_token, /logout etc.
+    );
 }
-

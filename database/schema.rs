@@ -1,58 +1,55 @@
-// database/schema.rs
-
-diesel::table! {
-    core_schema.users (id) {
-        id -> Int4,
-        username -> Varchar,
-        email -> Varchar,
-        password_hash -> Varchar,
-    }
-}
+// @generated automatically by Diesel CLI.
+// /home/inno/elights_jobes-research/database/schema.rs
 
 diesel::table! {
     core_schema.accounts (id) {
         id -> Int4,
-        user_id -> Int4,
-        account_number -> Varchar,
-        routing_number -> Varchar,
-        bank_name -> Varchar,
+        owner_username -> Text,
+        account_identifier -> Text,
+        account_type -> Text,
+        currency -> Text,
+        balance -> Numeric,
+        bank_name -> Nullable<Text>,
+        routing_number -> Nullable<Text>,
+        iban -> Nullable<Text>,
+        bic_swift -> Nullable<Text>,
+        crypto_address -> Nullable<Text>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
 diesel::table! {
     core_schema.transactions (id) {
-        id -> Int4,
-        account_id -> Int4,
+        id -> Uuid,
+        debit_account_id -> Nullable<Int4>,
+        credit_account_id -> Nullable<Int4>,
         amount -> Numeric,
-        currency -> Varchar,
-        transaction_type -> Varchar,
-        status -> Varchar,
+        currency -> Text,
+        transaction_type -> Text,
+        status -> Text,
+        description -> Nullable<Text>,
+        metadata -> Nullable<Jsonb>,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
     }
 }
 
-diesel::joinable!(accounts -> users (user_id));
-diesel::joinable!(transactions -> accounts (account_id));
+diesel::table! {
+    core_schema.users (username) {
+        username -> Text,
+        email -> Text,
+        password_hash -> Text,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(accounts -> users (owner_username));
+diesel::joinable!(transactions (credit_account_id) -> accounts (id));
+diesel::joinable!(transactions (debit_account_id) -> accounts (id));
 
 diesel::allow_tables_to_appear_in_same_query!(
-    users,
     accounts,
     transactions,
+    users,
 );
-
-#[derive(Deserialize)]
-struct TransactionPayload {
-    account_number: String,
-    amount: f64,
-    tx_type: String, // ACH, WIRE, CARD
-    direction: String, // IN or OUT
-}
-
-#[post("/transactions")]
-async fn create_tx(
-    db: web::Data<DbPool>,
-    payload: web::Json<TransactionPayload>
-) -> impl Responder {
-    // Fetch account, insert transaction, process balance
-    // Encrypt sensitive fields if using BlindAE
-    HttpResponse::Ok().json(json!({ "status": "success" }))
-}

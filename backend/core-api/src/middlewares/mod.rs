@@ -1,32 +1,8 @@
-// mod.rs - Model definitions. We remove any authentication specifics.
-use serde::{Deserialize, Serialize};
+// /home/inno/elights_jobes-research/backend/core-api/src/middlewares/mod.rs
 
-#[derive(Serialize, Deserialize)]
-pub struct User {
-    pub id: i32,
-    pub username: String,
-    pub password: String,
-    pub role: String,
-}
+pub mod ip_whitelist;
+pub mod logger;
+// Add other middleware modules here (e.g., authentication, cors)
 
-// Claims model – kept here if needed later.
-#[derive(Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: i32,
-    pub role: String,
-    pub exp: usize,
-}
-
-// Model for ACH details (for saving to DB)
-#[derive(Serialize, Deserialize)]
-pub struct ACHDetails {
-    pub account_number: String,
-    pub routing_number: String,
-}
-
-// Model for bank transfer details
-#[derive(Serialize, Deserialize)]
-pub struct BankTransferDetails {
-    pub bank_name: String,
-    pub account_number: String,
-}
+// Note: Models previously defined in the snippet for this file were moved
+// to the domain crate (domain/src/models/) as that's a more appropriate place.

@@ -1,8 +1,22 @@
+# /home/inno/elights_jobes-research/Cargo.toml
 [workspace]
+resolver = "2" # Use the latest resolver for better dependency management
+
 members = [
   "backend/core-api",
-  "domain",
+  "backend/domain", # Updated path
   "cryptography-exchange",
   "tor-network",
   "bank-integrations",
+  # Add other crates if they become part of the workspace
 ]
+
+# Optional: Define shared workspace dependencies or configurations if needed
+#[dependencies]
+# Example: shared logging crate
+# log = "0.4"
+
+#[profile.release]
+# Example: optimize release builds
+#lto = true
+#codegen-units = 1
