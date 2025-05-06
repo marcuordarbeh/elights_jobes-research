@@ -1,138 +1,131 @@
 // /home/inno/elights_jobes-research/backend/core-api/src/handlers/auth.rs
+use crate::db::{get_db_conn, DbPool};
+use crate::error::{ApiError, internal_error};
+use crate::models::{ApiAuthResponse, ApiLoginRequest, ApiRegisterRequest, ApiRegisterResponse};
+use crate::config::AppConfig; // Import AppConfig
 use actix_web::{web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
-use crate::error::ApiError;
-// Assume DbPool is sqlx::PgPool, adjust if using Diesel
-use sqlx::PgPool;
-// Import domain functions (adjust path/names as needed)
-use domain::security::auth::{authenticate_user, hash_password, AuthToken, UserCredentials};
-use domain::models::user::User as DomainUser; // Example import, might need different model
+use domain::security::auth::{authenticate_user, hash_password}; // Use domain auth functions
+use domain::models::{NewUser}; // Use domain model for insertion
+use std::sync::Arc; // For Arc<AppConfig>
+use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
-pub struct LoginRequest {
-    username: String,
-    password: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RegisterRequest {
-    username: String,
-    password: String,
-    email: String,
-}
-
-#[derive(Debug, Serialize)]
-struct AuthResponse {
-    token: String,
-}
-
-#[derive(Debug, Serialize)]
-struct RegisterResponse {
-    message: String,
-    username: String,
-}
-
-
-/// Handles user login requests.
-pub async fn login(
-    db_pool: web::Data<PgPool>,
-    info: web::Json<LoginRequest>,
-) -> Result<impl Responder, ApiError> {
-    log::info!("Login attempt for user: {}", info.username);
-
-    // --- Placeholder Logic ---
-    // 1. Fetch user from database by username
-    // Example using SQLx:
-    let user_result = sqlx::query_as!(
-        DomainUser, // Use your actual user struct compatible with sqlx::FromRow
-        "SELECT username, email, password_hash, created_at FROM core_schema.users WHERE username = $1",
-        info.username
-    )
-    .fetch_optional(db_pool.get_ref()) // Use get_ref() for web::Data<Pool>
-    .await;
-
-    let user = match user_result {
-         Ok(Some(user)) => user,
-         Ok(None) => return Err(ApiError::AuthenticationError("User not found".to_string())),
-         Err(e) => {
-             log::error!("Database error during login: {}", e);
-             return Err(ApiError::DatabaseError("Failed to fetch user".to_string()));
-         }
-    };
-
-    // 2. Verify password and generate token (using domain function)
-    // Retrieve JWT secret from environment securely
-    let jwt_secret = std::env::var("JWT_SECRET").map_err(|_| ApiError::ConfigurationError("JWT_SECRET not set".to_string()))?;
-
-    let credentials = UserCredentials {
-        username: &info.username,
-        password: &info.password,
-    };
-
-    // Assuming authenticate_user is adapted for async or is synchronous
-    // You might need to spawn_blocking if bcrypt/jwt calls are CPU-intensive and sync
-    match authenticate_user(&credentials, &user.password_hash, "user", jwt_secret.as_bytes()) { // Assuming role "user" for now
-        Ok(auth_token) => Ok(HttpResponse::Ok().json(AuthResponse { token: auth_token.token })),
-        Err(domain_err) => {
-            log::warn!("Authentication failed for {}: {}", info.username, domain_err);
-             match domain_err {
-                domain::DomainError::Security(_) => Err(ApiError::AuthenticationError("Invalid credentials".to_string())),
-                _ => Err(ApiError::InternalError("Authentication process failed".to_string())),
-            }
-        }
-    }
-    // --- End Placeholder Logic ---
-}
-
-/// Handles new user registration requests.
+/// Handles user registration requests.
 pub async fn register(
-    db_pool: web::Data<PgPool>,
-    info: web::Json<RegisterRequest>,
+    db_pool: web::Data<DbPool>,
+    info: web::Json<ApiRegisterRequest>,
 ) -> Result<impl Responder, ApiError> {
     log::info!("Registration attempt for user: {}", info.username);
 
-    // --- Placeholder Logic ---
-    // 1. Validate input (e.g., password strength, email format - can be in domain)
+    // Basic input validation
     if info.password.len() < 8 {
         return Err(ApiError::ValidationError("Password must be at least 8 characters".to_string()));
     }
-    // Add email format validation
+    // TODO: Add email format validation
 
-    // 2. Hash the password (using domain function)
-    let password_hash = hash_password(&info.password)?; // Propagate DomainError via ApiError::DomainLogicError
+    // Hash password (CPU intensive, run in blocking thread)
+    let password = info.password.clone();
+    let password_hash = web::block(move || hash_password(&password))
+        .await? // Handle blocking error -> InternalError
+        .map_err(ApiError::DomainLogicError)?; // Handle DomainError
 
-    // 3. Insert the new user into the database
-    // Example using SQLx:
-    let insert_result = sqlx::query!(
-        "INSERT INTO core_schema.users (username, email, password_hash) VALUES ($1, $2, $3)",
-        info.username,
-        info.email,
-        password_hash
-    )
-    .execute(db_pool.get_ref())
-    .await;
+    // Insert user into database
+    let mut conn = get_db_conn(&db_pool)?; // Get connection from pool
+    let username = info.username.clone();
+    let email = info.email.clone();
 
-    match insert_result {
-        Ok(result) if result.rows_affected() == 1 => {
-            log::info!("User '{}' registered successfully", info.username);
-             Ok(HttpResponse::Created().json(RegisterResponse {
+    // Use web::block for Diesel operation
+    let result = web::block(move || {
+        use crate::schema::users::dsl::*; // Import DSL for users table
+        use diesel::RunQueryDsl;
+
+        let new_db_user = NewUser { // Create struct matching Insertable
+            username: &username,
+            email: &email,
+            password_hash: &password_hash,
+        };
+
+        // Insert and return the new user's ID
+        diesel::insert_into(users)
+            .values(&new_db_user)
+            .returning(user_id) // Return the generated UUID
+            .get_result::<Uuid>(&mut conn)
+    })
+    .await?; // Handle blocking error
+
+    match result {
+         Ok(new_user_id) => {
+            log::info!("User '{}' registered successfully with ID: {}", info.username, new_user_id);
+             // TODO: Log audit event via domain service
+             Ok(HttpResponse::Created().json(ApiRegisterResponse {
                  message: "User registered successfully".to_string(),
-                 username: info.username.clone(),
-            }))
-        }
-        Ok(_) => {
-            // Should not happen if INSERT was successful but affected 0 rows
-            log::error!("User registration inserted 0 rows for {}", info.username);
-            Err(ApiError::InternalError("User registration failed unexpectedly".to_string()))
-        }
-        Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+                 user_id: new_user_id,
+             }))
+         }
+        Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _)) => {
              log::warn!("Registration failed for {}: Username or email already exists", info.username);
              Err(ApiError::BadRequest("Username or email already exists".to_string()))
          }
         Err(e) => {
             log::error!("Database error during registration for {}: {}", info.username, e);
-            Err(ApiError::DatabaseError("Failed to register user".to_string()))
+            // Wrap the Diesel error into internal_error to hide details
+            Err(internal_error(e))
+        }
+     }
+}
+
+/// Handles user login requests.
+pub async fn login(
+    db_pool: web::Data<DbPool>,
+    app_config: web::Data<Arc<AppConfig>>, // Get config from app state
+    info: web::Json<ApiLoginRequest>,
+) -> Result<impl Responder, ApiError> {
+    log::info!("Login attempt for user: {}", info.username);
+
+    let mut conn = get_db_conn(&db_pool)?;
+    let username = info.username.clone();
+    let password = info.password.clone();
+    let config = app_config.get_ref().clone(); // Clone Arc<AppConfig> for blocking thread
+
+    // Fetch user and authenticate (potentially blocking)
+    let auth_result = web::block(move || {
+        use crate::schema::users::dsl::*;
+        use diesel::prelude::*;
+        use domain::models::User as DomainUser; // Import domain User
+
+        // 1. Fetch user by username
+        let user = users
+            .filter(username.eq(&username)) // Use cloned username
+            .select(DomainUser::as_select()) // Select into domain::User struct
+            .first::<DomainUser>(&mut conn)
+            .optional()? // Handle NotFound gracefully
+            .ok_or(domain::DomainError::Authentication("Invalid credentials".to_string()))?; // Return Auth error if not found
+
+        // 2. Authenticate (Verify password and generate token)
+        // Requires JWT feature enabled in domain crate for real tokens
+        authenticate_user(
+             &user.username,
+             &password, // Use cloned password
+             &user.password_hash,
+             "user", // TODO: Get actual user role
+             config.jwt_secret.as_bytes(),
+             config.jwt_duration_hours,
+        )
+    })
+    .await?; // Handle blocking error
+
+    match auth_result {
+        Ok(auth_token) => {
+             log::info!("User '{}' logged in successfully.", info.username);
+             // TODO: Log audit event
+             Ok(HttpResponse::Ok().json(ApiAuthResponse {
+                 token: auth_token.token,
+                 expires_at: auth_token.expires_at,
+             }))
+        }
+        Err(domain_err) => {
+             // Map domain error to API error
+             log::warn!("Authentication failed for {}: {}", info.username, domain_err);
+             Err(ApiError::DomainLogicError(domain_err))
         }
     }
-    // --- End Placeholder Logic ---
 }

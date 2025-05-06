@@ -1,42 +1,57 @@
 // /home/inno/elights_jobes-research/backend/domain/src/security/audit.rs
-use chrono::{DateTime, Utc};
+use crate::error::DomainError;
+use crate::models::{NewAuditLog, AuditOutcome, AuditTargetType}; // Use domain models
+use diesel::prelude::*;
+use serde_json::Value as JsonValue;
+use uuid::Uuid;
 
-/// Logs an audit event.
-/// In a real scenario, this would write to a secure, append-only audit log store
-/// (e.g., dedicated database table, secure file, external log management system).
-/// It should include timestamp, user identifier, action performed, relevant entity IDs,
-/// source IP (if available), and success/failure status.
-pub fn log_audit_event(
-    user_identifier: &str, // Can be username, user ID, or system identifier
-    action: &str,        // e.g., "LOGIN_SUCCESS", "PAYMENT_INITIATED", "CONFIG_CHANGED"
-    details: Option<&str>, // Optional additional details
-    outcome: Result<(), &str>, // Indicate success or failure with reason
-) {
-    let timestamp: DateTime<Utc> = Utc::now();
-    let status = match outcome {
-        Ok(_) => "SUCCESS",
-        Err(e) => "FAILURE",
-    };
-    let detail_str = details.unwrap_or("-");
-    let error_msg = match outcome {
-        Ok(_) => "",
-        Err(e) => e,
+/// Logs an audit event directly to the database using Diesel.
+pub fn log_db_audit_event(
+    conn: &mut PgConnection, // Pass mutable connection
+    user_id: Option<Uuid>,
+    actor_identifier: &str, // Username, System Component, API Key ID
+    action: &str, // Verb describing the action (e.g., LOGIN, CREATE_TX)
+    target_type: Option<AuditTargetType>, // Type of entity acted upon
+    target_id: Option<&str>, // ID of the entity acted upon
+    outcome: AuditOutcome, // Success or Failure
+    details: Option<JsonValue>, // Additional context (IP, params etc.)
+    error_message: Option<&str>, // Specific error if outcome is Failure
+) -> Result<(), DomainError> {
+    use crate::schema::audit_logs::dsl::*; // Import DSL for audit_logs table
+
+    let outcome_str = match outcome {
+        AuditOutcome::Success => "Success",
+        AuditOutcome::Failure => "Failure",
     };
 
-    // Basic console logging - replace with proper logging framework in production
-    println!(
-        "AUDIT LOG | Timestamp: {} | User: {} | Action: {} | Status: {} | Details: {} | Error: {}",
-        timestamp.to_rfc3339(),
-        user_identifier,
+    let target_type_str = target_type.map(|t| match t { // Map enum to string if needed
+        AuditTargetType::User => "User",
+        AuditTargetType::Wallet => "Wallet",
+        AuditTargetType::Transaction => "Transaction",
+        AuditTargetType::System => "System",
+        AuditTargetType::Config => "Config",
+    });
+
+    let new_log = NewAuditLog {
+        // log_id is serial, timestamp is defaulted
+        user_id,
+        actor_identifier,
         action,
-        status,
-        detail_str,
-        error_msg
-    );
+        target_type: target_type_str.as_deref(),
+        target_id,
+        outcome: outcome_str,
+        details,
+        error_message,
+    };
 
-    // TODO: Implement writing to a persistent, secure audit log.
+    diesel::insert_into(audit_logs)
+        .values(&new_log)
+        .execute(conn) // Use execute for insert without returning result
+        .map_err(|e| {
+            // Log the failure to insert audit log itself (e.g., to stderr or fallback log)
+            eprintln!("CRITICAL: Failed to insert audit log: {}", e);
+            DomainError::Database(format!("Failed to insert audit log: {}", e))
+        })?;
+
+    Ok(())
 }
-
-// Example usage within other modules:
-// log_audit_event("user123", "INITIATE_PAYMENT", Some("Amount: 100 USD"), Ok(()));
-// log_audit_event("system", "CONFIG_READ", None, Err("Permission denied"));

@@ -1,22 +1,17 @@
 // /home/inno/elights_jobes-research/backend/domain/src/security/oauth.rs
 use crate::error::DomainError;
 
-/// Validates an OAuth2 token.
-/// In a real implementation, this would involve:
-/// 1. Possibly introspecting the token against the OAuth provider's endpoint.
-/// 2. Decoding the token (if JWT) and verifying its signature, issuer, audience, expiration, and scopes.
+/// Validates an OAuth2 token, typically by introspecting against the provider.
+/// Placeholder: Real implementation depends on the OAuth provider and chosen flow.
 pub async fn validate_oauth_token(token: &str) -> Result<bool, DomainError> {
-    // Placeholder validation logic
-    if token.starts_with("valid_oauth_token_") {
-        println!("OAuth token conceptually validated: {}", token);
-        // TODO: Implement actual OAuth token validation against provider or via JWT checks.
+    log::debug!("Validating OAuth token (placeholder)...");
+    // TODO: Implement actual OAuth token validation.
+    // This might involve:
+    // 1. Calling the provider's introspection endpoint (e.g., /token/introspect).
+    // 2. If it's a JWT, decoding and verifying signature, issuer, audience, expiration, scopes.
+    if token.starts_with("valid_oauth_token_") { // Dummy check
         Ok(true)
     } else {
-         println!("OAuth token validation failed: {}", token);
-        Err(DomainError::Security("Invalid OAuth token".to_string()))
+        Err(DomainError::Authentication("Invalid OAuth token (dummy check)".to_string()))
     }
 }
-
-// Placeholder for initiating OAuth flows or refreshing tokens if needed
-// pub async fn get_oauth_token(...) -> Result<String, DomainError> { ... }
-// pub async fn refresh_oauth_token(...) -> Result<String, DomainError> { ... }

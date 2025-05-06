@@ -1,85 +1,32 @@
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::env;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum ChaseError {
-    #[error("Missing environment variable: {0}")]
-    MissingEnvVar(&'static str),
-    #[error("HTTP request failed: {0}")]
-    RequestError(#[from] reqwest::Error),
-    #[error("API returned error status: {0}")]
-    ApiError(reqwest::StatusCode),
-    #[error("Failed to parse API response: {0}")]
-    ParseError(String),
-    #[error("Chase API specific error: {0}")]
-    ChaseSpecific(String), // For Chase-defined errors
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CustomerInfo {
-    pub customer_id: String,
-    pub name: String,
-    pub email: Option<String>, // Make fields optional if API might omit them
-    // Add other relevant fields from Chase API
-}
-
-#[derive(Clone)] // Clone needed if passing client around (e.g., in Actix data)
-pub struct ChaseClient {
-    base_url: String,
-    api_key: String,
-    http: Client,
-}
-
-impl ChaseClient {
-    pub fn new() -> Result<Self, ChaseError> {
-        let base_url = env::var("CHASE_API_BASE")
-            .map_err(|_| ChaseError::MissingEnvVar("CHASE_API_BASE"))?;
-        let api_key = env::var("CHASE_API_KEY")
-            .map_err(|_| ChaseError::MissingEnvVar("CHASE_API_KEY"))?;
-
-        Ok(Self {
-            base_url,
-            api_key,
-            // Create a reusable client with potential timeouts, etc.
-            http: Client::builder()
-                // .timeout(std::time::Duration::from_secs(15)) // Example timeout
-                .build()
-                .map_err(|e| ChaseError::RequestError(e))?,
-        })
+// /home/inno/elights_jobes-research/bank-integrations/src/europe/bnp_paribas.rs
+// Example for BNP Paribas (likely uses OAuth)
+use crate::client_trait::BankClient; use crate::error::BankClientError; use crate::models::*; use async_trait::async_trait; use reqwest::Client as HttpClient; use std::env; use chrono::{DateTime, Utc};
+#[derive(Clone)] pub struct BnpParibasClient { http_client: HttpClient, base_url: String, oauth_token: String } // Use OAuth token
+impl BnpParibasClient {
+    pub fn new() -> Result<Self, BankClientError> {
+        dotenv::dotenv().ok();
+        let base_url = env::var("BNP_PARIBAS_API_BASE").map_err(|_| BankClientError::ConfigurationError("BNP_PARIBAS_API_BASE not set".to_string()))?;
+        let oauth_token = env::var("BNP_PARIBAS_OAUTH_TOKEN").map_err(|_| BankClientError::ConfigurationError("BNP_PARIBAS_OAUTH_TOKEN not set".to_string()))?;
+        let http_client = HttpClient::builder().timeout(std::time::Duration::from_secs(30)).build().map_err(|e| BankClientError::InternalError(format!("HTTP client build failed: {}", e)))?;
+        // TODO: Implement OAuth token refresh logic if needed
+        Ok(Self { http_client, base_url, oauth_token })
     }
+     // TODO: Implement request building/handling specific to BNP Paribas API (using Bearer token)
+     fn build_auth_request(&self, method: reqwest::Method, endpoint: &str) -> reqwest::RequestBuilder {
+         let url = format!("{}{}", self.base_url, endpoint);
+         self.http_client.request(method, url).bearer_auth(&self.oauth_token)
+            .header(reqwest::header::ACCEPT, "application/json") // Specify required Accept header for PSD2 APIs
+            // Add other required PSD2 headers (e.g., PSU-ID, PSU-IP-Address, Consent-ID) - Complex!
+     }
+      async fn handle_response<T: serde::de::DeserializeOwned>(&self, response: reqwest::Response) -> Result<T, BankClientError> { /* Similar to Chase */ todo!() }
 
-    /// Fetches customer information from the Chase API.
-    pub async fn fetch_customer_info(&self, customer_id: &str) -> Result<CustomerInfo, ChaseError> {
-        let url = format!("{}/customers/{}", self.base_url, customer_id);
-        println!("ChaseClient: Fetching customer info from {}", url); // Basic logging
-
-        let resp = self
-            .http
-            .get(&url)
-            .bearer_auth(&self.api_key) // Assuming Bearer token auth
-            // .header("x-api-key", &self.api_key) // Or API Key header
-            .send()
-            .await
-            .map_err(ChaseError::RequestError)?;
-
-        if !resp.status().is_success() {
-            // Log or handle specific error codes from Chase API docs if available
-            let status = resp.status();
-            let error_body = resp.text().await.unwrap_or_else(|_| "Failed to read error body".to_string());
-            println!("Chase API Error: Status {}, Body: {}", status, error_body);
-            return Err(ChaseError::ApiError(status));
-        }
-
-        let customer = resp
-            .json::<CustomerInfo>()
-            .await
-            .map_err(|e| ChaseError::ParseError(e.to_string()))?;
-
-        Ok(customer)
-    }
-
-    // TODO: Add other methods for Chase API (e.g., initiate_payment, list_accounts)
-    // async fn initiate_payment(&self, ...) -> Result<PaymentStatus, ChaseError> { ... }
+}
+#[async_trait]
+impl BankClient for BnpParibasClient {
+    fn bank_name(&self) -> &'static str { "BNP Paribas" }
+    async fn fetch_account_info(&self, account_id: &str) -> Result<AccountInfo, BankClientError> { todo!("Implement BNP Paribas API call") }
+    async fn fetch_balance(&self, account_id: &str) -> Result<Balance, BankClientError> { todo!() }
+    async fn list_transactions(&self, account_id: &str, start_date: Option<DateTime<Utc>>, end_date: Option<DateTime<Utc>>, limit: Option<u32>) -> Result<Vec<BankTransaction>, BankClientError> { todo!() }
+    async fn initiate_payment(&self, payment_request: &PaymentRequest) -> Result<PaymentStatus, BankClientError> { todo!("Implement BNP Paribas SEPA payment call") }
+    async fn get_payment_status(&self, payment_id: &str) -> Result<PaymentStatus, BankClientError> { todo!() }
 }

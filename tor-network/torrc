@@ -1,18 +1,35 @@
 # /home/inno/elights_jobes-research/tor-network/torrc
-# Example Tor configuration file for a client or relay node.
-# This would typically be used by a separate Tor daemon process,
-# not directly by the Rust application unless using specific Tor libraries.
+# Example Tor configuration file for the external Tor daemon process
+# used by the application via SOCKS proxy.
 
-# Example Client Configuration:
-SocksPort 9050 # Default SOCKS port specified in docker-compose.yml
-# ControlPort 9051 # If needed for control connections
-# HashedControlPassword ... # If TOR_PASSWORD is set
+# --- Client Configuration ---
+# Use the SOCKS port specified in docker-compose.yml and .env
+SocksPort ${TOR_SOCKS_PORT:-9050}
 
-# Example Relay Configuration (Requires more setup):
-# ORPort 9001
-# Nickname ElightsJobesRelay
-# ContactInfo your_email@example.com
-# ExitPolicy reject *:* # Example: non-exit relay
+# Enable Control Port for potential application control (optional)
+ControlPort ${TOR_CONTROL_PORT:-9051}
+# Set a hashed password for the Control Port if needed (generate with `tor --hash-password "your_password"`)
+# HashedControlPassword ${TOR_HASHED_PASSWORD} # Example
+# Alternatively, allow connections without password from specific UIDs or use cookie auth
+# CookieAuthentication 1
 
-# Note: Consult official Tor documentation for detailed configuration options.
+# --- Logging ---
+# Log notice stdout
+# Log info file /var/log/tor/info.log # Requires directory permissions
+Log notice stdout
+
+# --- Network Settings ---
+# Avoid potentially problematic exit nodes if needed
+# ExcludeExitNodes {ru},{cn},{ir},{kp},{sy} # Example: Exclude specific countries
+# StrictNodes 1 # If using ExcludeExitNodes
+
+# Specify entry/exit nodes if testing specific paths (use fingerprints)
+# EntryNodes <fingerprint1>,<fingerprint2>
+# ExitNodes <fingerprint3> StrictNodes 1
+
+# --- Performance / Tuning (Optional) ---
+# ConnectionPadding 1 # Might help against some traffic analysis, increases overhead
+# ReducedConnectionPadding 0
+
+# Consult official Tor documentation for more advanced options:
 # https://community.torproject.org/relay/setup/configuration/

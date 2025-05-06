@@ -5,18 +5,61 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-libp2p = { version = "0.48", features = ["tcp-tokio", "dns", "noise", "yamux", "mplex"] } # Check for latest compatible version
+# P2P Networking
+libp2p = { version = "0.52", # Use a recent version compatible with examples
+            features = [
+                "tcp",             # TCP transport
+                "tokio",           # Tokio integration
+                "dns",             # DNS resolution
+                "noise",           # Noise encryption protocol
+                "yamux",           # Yamux stream multiplexing
+                "mplex",           # Mplex stream multiplexing (alternative)
+                "kad",             # Kademlia DHT for discovery/routing
+                "gossipsub",       # Gossipsub for pub/sub messaging
+                "identify",        # Peer identity protocol
+                "ping",            # Ping protocol
+                # "relay-client",  # If using circuit relays (v2)
+                # "macros",        # For derive NetworkBehaviour
+            ]
+}
+
+# Async Runtime & Futures
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
-thiserror = "1.0"
-serde = { version = "1.0", features = ["derive"], optional = true } # If sending structured data
-serde_json = { version = "1.0", optional = true } # If using JSON
 
-# For CLI wallet
-# std::io is usually sufficient, but add clap or similar if complex args needed
-# clap = { version = "4", features = ["derive"], optional = true }
+# Error Handling & Logging
+thiserror = "1.0"
+log = "0.4"
+env_logger = "0.10" # Optional: If running node standalone
+
+# Serialization (if sending structured data over P2P)
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true } # Or other formats like msgpack, protobuf
+
+# Configuration
+dotenv = { version = "0.15", optional = true } # If node reads .env directly
+
+# Utilities
+rand = "0.8"
+hex = "0.4" # For PeerId display etc.
+
+# SOCKS5 Proxy (if routing libp2p through Tor)
+# Note: Requires careful integration or specific libp2p transport support.
+# Placeholder - check for crates like `libp2p-socks` or requires custom transport.
+# tokio-socks = { version = "0.5", optional = true }
 
 [features]
-default = []
-cli = [] # ["dep:clap"]
-# Add features for specific behaviours if needed
+default = ["p2p_node"] # Default feature could be the node
+cli_wallet = [] # Feature for enabling the CLI wallet binary
+# socks_proxy = ["dep:tokio-socks"] # Feature to enable SOCKS proxy transport
+
+# Define binaries if needed
+# [[bin]]
+# name = "elights-node"
+# path = "src/main.rs" # Example main entry point for the node
+# required-features = ["p2p_node"]
+
+# [[bin]]
+# name = "elights-cli"
+# path = "src/cli_main.rs" # Example entry point for CLI wallet
+# required-features = ["cli_wallet"]

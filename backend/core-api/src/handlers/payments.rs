@@ -1,214 +1,191 @@
 // /home/inno/elights_jobes-research/backend/core-api/src/handlers/payments.rs
-use actix_web::{web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
-use crate::error::ApiError;
-use domain::payments::{
-    process_ach_payment, process_card_payment, process_check_payment, process_wire_payment, // Example imports
-};
-use domain::models::{TransactionType, TransactionStatus}; // Use domain enums
-use rust_decimal::Decimal;
-use sqlx::PgPool;
+use crate::db::{get_db_conn, DbPool};
+use crate::error::{ApiError, internal_error};
+use crate::models::{ApiInitiatePaymentRequest, ApiPaymentResponse, ApiPaymentStatusResponse};
+use crate::config::AppConfig;
+use crate::middlewares::auth_guard::AuthenticatedUser; // Import claims from auth middleware
+use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use domain::payments::{PaymentProcessor, PaymentRequest as DomainPaymentRequest}; // Use domain processor/request
+use domain::models::{Transaction, AchDetails, WireDetails, CheckDetails}; // Import domain details
+use std::sync::Arc;
 use uuid::Uuid;
+use bank_integrations::gateway::MockPaymentGateway; // Using mock gateway for now
 
-#[derive(Debug, Deserialize)]
-pub struct InitiatePaymentRequest {
-    amount: Decimal, // Use Decimal for accuracy
-    currency: String, // e.g., "USD", "EUR"
-    payment_type: TransactionType, // Use enum from domain
-    // Add specific details based on payment_type
-    source_account_id: Option<i32>, // Internal account ID
-    beneficiary_account_id: Option<i32>, // Internal account ID
-    beneficiary_details: Option<BeneficiaryDetails>, // External details
-    card_details: Option<CardDetails>, // For card payments
-    ach_details: Option<AchDetails>, // For ACH
-    wire_details: Option<WireDetails>, // For Wire
-    check_details: Option<CheckDetails>, // For Check
-    description: Option<String>,
-    metadata: Option<serde_json::Value>, // Allow arbitrary metadata
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BeneficiaryDetails {
-    name: String,
-    account_number: String, // Could be IBAN etc.
-    bank_bic_swift: Option<String>,
-    bank_name: Option<String>,
-    // Add address etc. if needed
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CardDetails {
-    card_number: String,
-    expiry_month: u8,
-    expiry_year: u16,
-    cvv: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AchDetails {
-    routing_number: String,
-    account_number: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct WireDetails {
-    swift_bic: String,
-    account_number: String, // IBAN or other format
-    beneficiary_name: String,
-    // Add intermediary bank info, purpose codes etc.
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CheckDetails {
-     payee_name: String,
-     routing_number: String,
-     account_number: String,
-     check_number: Option<String>,
-}
-
-
-#[derive(Debug, Serialize)]
-pub struct PaymentResponse {
-    transaction_id: Uuid, // Use UUID
-    status: TransactionStatus, // Use enum
-    message: String,
-}
-
-/// Initiates a payment based on the request type.
+/// Initiates a payment. Requires authentication.
 pub async fn initiate_payment(
-    db_pool: web::Data<PgPool>,
-    info: web::Json<InitiatePaymentRequest>,
+    db_pool: web::Data<DbPool>,
+    _app_config: web::Data<Arc<AppConfig>>, // Get config if needed by processor
+    user: AuthenticatedUser, // Claims from AuthGuard middleware
+    info: web::Json<ApiInitiatePaymentRequest>,
 ) -> Result<impl Responder, ApiError> {
-    log::info!("Initiating payment type: {:?}", info.payment_type);
+    log::info!("User {} initiating payment: Type={:?}, Amount={} {}",
+        user.username, info.payment_type, info.amount, info.currency);
 
-    // TODO: Implement authorization check (which user is initiating?)
+    let mut conn = get_db_conn(&db_pool)?;
 
-    // --- Basic Validation ---
-    if info.amount <= Decimal::ZERO {
-        return Err(ApiError::ValidationError("Payment amount must be positive".to_string()));
-    }
-    // Add currency validation
+    // --- Create Domain Payment Request ---
+    // TODO: Map API request fields to DomainPaymentRequest fields carefully
+    // Requires parsing API details into domain detail structs
+    let domain_ach_details: Option<AchDetails> = if let (Some(r), Some(a)) = (&info.ach_routing, &info.ach_account) {
+         Some(AchDetails { routing_number: r.clone(), account_number: a.clone() })
+    } else { None };
+    // TODO: Map other detail types (Wire, Check) similarly
 
-    // --- Placeholder Logic ---
-    // 1. Create Transaction record in DB with PENDING status
-    let transaction_id = Uuid::new_v4();
-    // TODO: Insert transaction into database `core_schema.transactions`
-    // let initial_status = TransactionStatus::Pending;
-    // let db_result = sqlx::query!(...) -> map_err(|e| ApiError::DatabaseError(...))?;
-
-    // 2. Route to appropriate domain service based on payment_type
-    let processing_result: Result<String, domain::DomainError> = match info.payment_type {
-        TransactionType::Ach => {
-            let details = info.ach_details.as_ref().ok_or_else(|| ApiError::BadRequest("ACH details missing".to_string()))?;
-            process_ach_payment(info.amount, &details.routing_number, &details.account_number)
-        }
-        TransactionType::Wire => {
-             let details = info.wire_details.as_ref().ok_or_else(|| ApiError::BadRequest("Wire details missing".to_string()))?;
-             process_wire_payment(info.amount, &info.currency, &details.swift_bic, &details.account_number, &details.beneficiary_name)
-         }
-        TransactionType::Card => {
-             let details = info.card_details.as_ref().ok_or_else(|| ApiError::BadRequest("Card details missing".to_string()))?;
-             process_card_payment(&details.card_number, details.expiry_month, details.expiry_year, &details.cvv, info.amount)
-         }
-         TransactionType::Check => {
-             let details = info.check_details.as_ref().ok_or_else(|| ApiError::BadRequest("Check details missing".to_string()))?;
-             process_check_payment(&details.payee_name, &details.routing_number, &details.account_number, details.check_number.as_deref(), info.amount)
-         }
-        // Handle other types (InternalTransfer, Crypto)
-        _ => Err(domain::DomainError::Validation(format!("Unsupported payment type: {:?}", info.payment_type))),
+    let domain_request = DomainPaymentRequest {
+        initiating_user_id: user.user_id, // Get user ID from JWT claims
+        amount: info.amount,
+        currency: &info.currency,
+        payment_type: info.payment_type.clone(),
+        source_wallet_id: info.source_wallet_id,
+        destination_wallet_id: info.destination_wallet_id,
+        ach_details: domain_ach_details.as_ref(), // Pass references
+        wire_details: None, // TODO: Map from info
+        card_token: info.card_token.as_deref(),
+        check_details: None, // TODO: Map from info
+        crypto_address: None, // Not for fiat payments
+        description: info.description.as_deref().unwrap_or("Payment Initiation"),
+        metadata: info.metadata.clone(),
     };
 
-    // 3. Update Transaction status in DB based on processing result
-    let final_status = match processing_result {
-        Ok(processor_ref) => {
-            log::info!("Payment {} initiated successfully via processor. Ref: {}", transaction_id, processor_ref);
-             // TODO: Update transaction status to PROCESSING or COMPLETED in DB
-             TransactionStatus::Processing // Or Completed if synchronous
-        }
-        Err(e) => {
-            log::error!("Payment initiation {} failed: {}", transaction_id, e);
-             // TODO: Update transaction status to FAILED in DB
-             return Err(ApiError::DomainLogicError(e)); // Return error to client
-        }
-    };
+    // --- Use Payment Processor ---
+    // TODO: Inject real card gateway implementation based on config
+    let mock_card_gateway = MockPaymentGateway::default();
 
-    Ok(HttpResponse::Accepted().json(PaymentResponse { // Use Accepted (202) for async processing
-        transaction_id,
-        status: final_status,
-        message: format!("Payment {:?} initiated.", info.payment_type),
+    let processor = PaymentProcessor::new(&mut conn, &mock_card_gateway);
+
+    // Processor handles DB transaction, validation, debit, external calls (stubs), status updates
+    // Run the processor logic in a blocking thread if it makes synchronous DB calls heavily
+    let transaction_result = web::block(move || processor.process_outbound_payment(domain_request))
+        .await? // Handle blocking error
+        .map_err(ApiError::DomainLogicError)?; // Map DomainError
+
+    Ok(HttpResponse::Accepted().json(ApiPaymentResponse {
+        transaction_id: transaction_result.transaction_id,
+        status: domain::models::TransactionStatus::from_str(&transaction_result.status)
+            .unwrap_or(domain::models::TransactionStatus::Unknown), // Convert string back to enum
+        message: format!("Payment {:?} submitted successfully.", info.payment_type),
+        created_at: transaction_result.created_at,
     }))
-    // --- End Placeholder Logic ---
 }
 
-/// Gets the status of a specific payment transaction.
+/// Gets the status of a specific payment transaction. Requires authentication.
 pub async fn get_payment_status(
-    db_pool: web::Data<PgPool>,
-    path: web::Path<Uuid>, // Get transaction ID from path
+    db_pool: web::Data<DbPool>,
+    _user: AuthenticatedUser, // Ensure user is authenticated
+    path: web::Path<Uuid>,
 ) -> Result<impl Responder, ApiError> {
     let transaction_id = path.into_inner();
     log::info!("Fetching status for transaction ID: {}", transaction_id);
 
-    // --- Placeholder Logic ---
-    // 1. Fetch transaction from database by ID
-    // Example using SQLx:
-    // let transaction_result = sqlx::query_as!(
-    //     domain::models::Transaction, // Use actual struct compatible with FromRow
-    //     "SELECT ... FROM core_schema.transactions WHERE id = $1",
-    //     transaction_id
-    // )
-    // .fetch_optional(db_pool.get_ref())
-    // .await;
-    //
-    // let transaction = match transaction_result {
-    //     Ok(Some(tx)) => tx,
-    //     Ok(None) => return Err(ApiError::NotFoundError(format!("Transaction {} not found", transaction_id))),
-    //     Err(e) => {
-    //         log::error!("Database error fetching transaction {}: {}", transaction_id, e);
-    //         return Err(ApiError::DatabaseError("Failed to fetch transaction status".to_string()));
-    //     }
-    // };
+    let mut conn = get_db_conn(&db_pool)?;
 
-    // Dummy response
-    let dummy_status = TransactionStatus::Completed; // Replace with actual status from DB
+    // Fetch transaction directly using Diesel within web::block
+    let transaction = web::block(move || {
+        use crate::schema::transactions::dsl::*;
+        use diesel::prelude::*;
+        transactions
+            .find(transaction_id)
+            .select(Transaction::as_select()) // Select full domain model
+            .first::<Transaction>(&mut conn)
+    })
+    .await? // Handle blocking error
+    .map_err(|e| match e { // Map Diesel error
+         diesel::result::Error::NotFound => ApiError::NotFound(format!("Transaction {} not found", transaction_id)),
+         _ => internal_error(e),
+    })?;
 
-    Ok(HttpResponse::Ok().json(PaymentResponse {
-        transaction_id,
-        status: dummy_status,
-        message: "Status retrieved".to_string(),
-    }))
-    // --- End Placeholder Logic ---
+    // TODO: Add authorization check - does the authenticated user own this transaction?
+
+    // Map domain::Transaction to ApiPaymentStatusResponse
+    let response = ApiPaymentStatusResponse {
+        transaction_id: transaction.transaction_id,
+        status: domain::models::TransactionStatus::from_str(&transaction.status).unwrap_or(domain::models::TransactionStatus::Unknown),
+        transaction_type: domain::models::TransactionType::from_str(&transaction.transaction_type).unwrap_or(domain::models::TransactionType::Unknown),
+        amount: transaction.amount.to_string(),
+        currency: transaction.currency_code,
+        description: transaction.description,
+        created_at: transaction.created_at,
+        updated_at: transaction.updated_at,
+        settlement_at: transaction.settlement_at,
+        external_ref_id: transaction.external_ref_id,
+        metadata: transaction.metadata,
+    };
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
-/// Handles incoming payment webhooks (e.g., from Stripe, ACH returns).
+/// Handles incoming payment webhooks. Public endpoint, requires signature verification.
 pub async fn handle_payment_webhook(
-    db_pool: web::Data<PgPool>,
-    payload: web::Bytes, // Process raw bytes to verify signature before parsing JSON
-    req: actix_web::HttpRequest,
+    db_pool: web::Data<DbPool>,
+    _app_config: web::Data<Arc<AppConfig>>, // For webhook secrets
+    path: web::Path<String>, // Get provider name from path
+    payload: web::Bytes, // Raw payload for signature verification
+    req: HttpRequest,
 ) -> Result<impl Responder, ApiError> {
-    log::info!("Received payment webhook");
+    let provider = path.into_inner();
+    log::info!("Received payment webhook from provider: {}", provider);
 
-    // --- Placeholder Logic ---
-    // 1. Verify webhook signature (essential for security!)
-    //    - Get signature from request headers (e.g., 'Stripe-Signature')
-    //    - Get webhook secret from config/env
-    //    - Use the provider's library to verify the signature against the raw payload bytes.
-    //    - If verification fails, return Unauthorized or BadRequest.
-    // let signature = req.headers().get("Webhook-Signature").map(|h| h.to_str().unwrap_or(""));
-    // if !verify_webhook_signature(&payload, signature, "webhook_secret") {
-    //      return Err(ApiError::AuthenticationError("Invalid webhook signature".to_string()));
-    // }
+    // --- 1. Signature Verification ---
+    // TODO: Implement signature verification based on provider
+    match provider.as_str() {
+        // "stripe" => {
+        //     let sig_header = req.headers().get("Stripe-Signature")....;
+        //     let secret = app_config.stripe_webhook_secret;
+        //     verify_stripe_signature(&payload, sig_header, &secret)?;
+        // }
+        "mock" => { // Allow mock provider for testing
+            log::warn!("Processing mock webhook - skipping signature verification.");
+         }
+        _ => {
+            log::error!("Unsupported webhook provider: {}", provider);
+            return Err(ApiError::BadRequest("Unsupported webhook provider".to_string()));
+        }
+    }
 
-    // 2. Parse the payload (now that signature is verified)
-    let event_data: serde_json::Value = serde_json::from_slice(&payload)
+    // --- 2. Parse Payload ---
+     let event_data: serde_json::Value = serde_json::from_slice(&payload)
          .map_err(|e| ApiError::BadRequest(format!("Invalid webhook JSON payload: {}", e)))?;
+    log::debug!("Webhook payload parsed: {:?}", event_data);
 
-    // 3. Process the event data
-    //    - Identify event type (e.g., 'charge.succeeded', 'ach.returned')
-    //    - Extract relevant transaction identifiers
-    //    - Update the corresponding transaction status in the database
-    log::info!("Processing webhook event: {:?}", event_data.get("type"));
-    // TODO: Implement event processing and DB update logic
 
-    Ok(HttpResponse::Ok().finish()) // Respond with 200 OK to acknowledge receipt
-     // --- End Placeholder Logic ---
+    // --- 3. Process Event & Update DB ---
+    // Use PaymentProcessor or dedicated webhook handler service
+    let mut conn = get_db_conn(&db_pool)?;
+    // TODO: Implement processor.handle_webhook_event(...)
+    // This function needs to parse the provider-specific payload,
+    // map it to internal status updates (e.g., Completed, Failed, Returned),
+    // and call processor.update_payment_status(...) within a DB transaction.
+    // Example conceptual call:
+    // processor.handle_webhook_event(&provider, event_data).await?;
+
+    log::info!("Webhook from provider '{}' processed successfully.", provider);
+    Ok(HttpResponse::Ok().finish()) // Return 200 OK to acknowledge
 }
+
+// Helper for enum FromStr (add to domain models or utils)
+impl std::str::FromStr for domain::models::TransactionStatus {
+     type Err = ();
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+         match s {
+             "Pending" => Ok(Self::Pending), "Processing" => Ok(Self::Processing),
+             "RequiresAction" => Ok(Self::RequiresAction), "Authorized" => Ok(Self::Authorized),
+             "Submitted" => Ok(Self::Submitted), "Settled" => Ok(Self::Settled),
+             "Completed" => Ok(Self::Completed), "Failed" => Ok(Self::Failed),
+             "Cancelled" => Ok(Self::Cancelled), "Returned" => Ok(Self::Returned),
+             "Chargeback" => Ok(Self::Chargeback), "Expired" => Ok(Self::Expired),
+             _ => Ok(Self::Unknown), // Default or Err(())
+         }
+     }
+ }
+  impl std::str::FromStr for domain::models::TransactionType {
+       type Err = ();
+       fn from_str(s: &str) -> Result<Self, Self::Err> {
+           // Match strings based on enum variants defined in domain::models
+           match s {
+                "AchCredit" => Ok(Self::AchCredit), "AchDebit" => Ok(Self::AchDebit),
+                "WireOutbound" => Ok(Self::WireOutbound), "WireInbound" => Ok(Self::WireInbound),
+                // ... add all other variants ...
+                _ => Ok(Self::Unknown) // Default or Err(())
+           }
+       }
+   }

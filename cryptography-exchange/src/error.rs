@@ -1,29 +1,51 @@
 // /home/inno/elights_jobes-research/cryptography-exchange/src/error.rs
 use thiserror::Error;
 
+/// Errors related to cryptocurrency exchange operations and integrations.
 #[derive(Error, Debug)]
 pub enum ExchangeError {
+    #[error("Missing configuration or environment variable: {0}")]
+    ConfigurationError(String),
+
     #[error("HTTP request failed: {0}")]
     RequestError(#[from] reqwest::Error),
 
-    #[error("API returned error status {0}: {1}")]
-    ApiError(reqwest::StatusCode, String),
+    #[error("Client is not initialized or configured properly for {0}")]
+    NotInitialized(&'static str),
 
-    #[error("Failed to parse API response: {0}")]
-    ParseError(String),
+    #[error("API returned an error: Status={status}, Body={body}")]
+    ApiError {
+        status: reqwest::StatusCode,
+        body: String,
+    },
 
-    #[error("Missing configuration: {0}")]
-    MissingConfig(&'static str),
+    #[error("JSON-RPC error from Monero Wallet: Code={code}, Message={message}")]
+    JsonRpcError { code: i64, message: String },
 
-    #[error("Crypto operation failed: {0}")]
-    CryptoError(String),
+    #[error("Failed to parse API/RPC response: {0}")]
+    ResponseParseError(String),
+
+    #[error("Operation timed out interacting with service")]
+    TimeoutError,
+
+    #[error("Invalid input provided: {0}")]
+    InvalidInput(String),
+
+    #[error("Cryptocurrency operation failed: {0}")]
+    CryptoOperationFailed(String), // e.g., signing error, address validation
 
     #[error("Conversion error: {0}")]
     ConversionError(String),
 
-    #[error("Unsupported currency pair: {0} -> {1}")]
-    UnsupportedPair(String, String),
+    #[error("Unsupported currency or pair: {0}")]
+    UnsupportedCurrency(String),
 
-    #[error("Invalid amount: {0}")]
-    InvalidAmount(String),
+    #[error("Webhook verification failed: {0}")]
+    WebhookVerificationError(String),
+
+    #[error("Rate fetching error: {0}")]
+    RateFetchingError(String),
+
+    #[error("Internal client error: {0}")]
+    InternalError(String),
 }
