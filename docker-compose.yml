@@ -1,98 +1,176 @@
 # /home/inno/elights_jobes-research/docker-compose.yml
-version: '3.8'
+version: '3.9' # Use a recent version
 
 services:
-  # PostgreSQL Database Service [cite: 2]
+  # PostgreSQL Database Service (Using PostgreSQL 15)
   postgres:
-    image: postgres:15 # Using PostgreSQL 15 as per documentation [cite: 2]
+    image: postgres:15-alpine # Use specific version, alpine for smaller size
+    container_name: elights_postgres
+    hostname: postgres
     environment:
-      # Define user, password, and database name [cite: 10841, 13802]
       POSTGRES_USER: ${POSTGRES_USER:-core_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
-      POSTGRES_DB: ${POSTGRES_DB:-core_db}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-P@sswOrd!} # Use a strong default in .env
+      POSTGRES_DB: ${POSTGRES_DB:-elights_db}
     volumes:
-      # Persist database data [cite: 10841]
+      # Mount init script for initial setup (e.g., create extensions)
+      - ./database/init/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      # Persist database data
       - postgres_data:/var/lib/postgresql/data
-      # Optional: Mount init script for initial setup [cite: 10880]
-      # - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      # Expose PostgreSQL port [cite: 10841]
+      # Expose PostgreSQL port (host:container)
       - "${POSTGRES_PORT:-5432}:5432"
     restart: unless-stopped
+    networks:
+      - elights_internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-core_user} -d ${POSTGRES_DB:-core_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-core_user} -d ${POSTGRES_DB:-elights_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
-  # BTCPay Server (Optional - depending on direct integration needs vs. client lib) [cite: 3]
-  btcpay:
-    image: btcpayserver/btcpayserver:latest
-    environment:
-      # Required API key for interaction [cite: 10841]
-      BTCPAY_API_KEY: ${BTCPAY_API_KEY}
-      # Add other necessary BTCPay env vars based on its documentation
-    ports:
-      # Expose BTCPay port [cite: 10841]
-      - "${BTCPAY_PORT:-23000}:23000" # Default BTCPay port might differ
-    restart: unless-stopped
+  # BTCPay Server (Optional - Full instance)
+  # See https://docs.btcpayserver.org/Docker/ for full docker-compose setup if running full instance
+  # This setup assumes core-api uses the BTCPayClient to talk to an EXTERNAL BTCPay Server instance defined in .env
+  # If running locally for dev:
+  # btcpay:
+  #   image: btcpayserver/btcpayserver:latest # Consult BTCPay docs for recommended image/setup
+  #   container_name: elights_btcpay
+  #   hostname: btcpay
+  #   environment:
+  #     # Consult BTCPay Docker docs for necessary variables
+  #     NBITCOIN_NETWORK: ${NBITCOIN_NETWORK:-regtest} # e.g., mainnet, testnet, regtest
+  #     BTCPAYGEN_LIGHTNING: "cln" # Example: Use Core Lightning
+  #     # ... other BTCPay variables
+  #   ports:
+  #     - "${BTCPAY_PORT:-80}:80" # Adjust ports as needed
+  #     - "${BTCPAY_HTTPS_PORT:-443}:443"
+  #   volumes:
+  #     - btcpay_data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - elights_internal
 
-  # Monero Wallet RPC Service [cite: 4]
-  monero-wallet:
-    # Replace with the actual image name if you have a custom build
-    # or find a suitable public image for monero-wallet-rpc
-    image: monero-wallet-rpc-placeholder:latest
+  # Monero Wallet RPC Service
+  # Requires a Monero node running and accessible. This runs the wallet RPC.
+  monero-wallet-rpc:
+    # Use official images or trusted builds. Placeholder image name:
+    image: sethsimmons/monero-wallet-rpc:latest # Example - find suitable/build your own
+    container_name: elights_monero_wallet
+    hostname: monero-wallet
     environment:
-      # RPC connection details [cite: 10842]
+      # RPC binding
       MONERO_WALLET_RPC_BIND_IP: 0.0.0.0
-      MONERO_WALLET_RPC_LOGIN: ${MONERO_WALLET_USER}:${MONERO_WALLET_PASSWORD}
-      # Add other necessary Monero Wallet RPC env vars
-      # MONERO_WALLET_RPC: ${MONERO_WALLET_RPC} # Likely configured via args or config file
+      MONERO_WALLET_RPC_BIND_PORT: ${MONERO_WALLET_RPC_PORT:-18083} # Often 18082 or 18083
+      # Credentials for RPC access (passed to daemon on startup)
+      MONERO_WALLET_RPC_LOGIN: ${MONERO_WALLET_USER:-rpc_user}:${MONERO_WALLET_PASSWORD:-rpc_pass}
+      # Daemon address (needs a running monerod accessible)
+      MONERO_DAEMON_ADDRESS: ${MONERO_DAEMON_ADDRESS:-host.docker.internal:18081} # Example: connect to host machine's monerod
+      MONERO_NETWORK: ${MONERO_NETWORK:-stagenet} # mainnet, stagenet, or testnet
+      # Other wallet RPC options via args or config file mount
+    # Command might be needed to start RPC with correct flags
+    # command: ["--daemon-address", "${MONERO_DAEMON_ADDRESS}", "--rpc-bind-ip", "0.0.0.0", "--rpc-bind-port", "${MONERO_WALLET_RPC_PORT}", "--rpc-login", "${MONERO_WALLET_USER}:${MONERO_WALLET_PASSWORD}", "--network", "${MONERO_NETWORK}", "--wallet-file", "/wallet/mywallet", "--password", "wallet_password", "--trusted-daemon"] # Example command structure
     ports:
-      # Expose Monero Wallet RPC port [cite: 10842]
-      - "${MONERO_WALLET_RPC_PORT:-18082}:18082"
+      - "${MONERO_WALLET_RPC_PORT:-18083}:${MONERO_WALLET_RPC_PORT:-18083}"
+    volumes:
+      # Mount wallet files persistently
+      - monero_wallet_data:/wallet
+      # Mount config file if needed
+      # - ./config/monero/monero-wallet-rpc.conf:/etc/monero-wallet-rpc.conf
     restart: unless-stopped
-    # Add healthcheck if possible
+    networks:
+      - elights_internal
+    # Depends on monerod if running in docker
+    # depends_on:
+    #   - monerod
 
-  # Tor Proxy Service [cite: 1]
+  # Tor Proxy Service (from snippet)
   tor:
-    image: dperson/torproxy # Using the specified image [cite: 10842]
+    image: dperson/torproxy:latest # Check for updates/official images
+    container_name: elights_tor
+    hostname: tor
     environment:
-      # Tor configuration details [cite: 10842]
       TOR_SOCKS_PORT: ${TOR_SOCKS_PORT:-9050}
       TOR_CONTROL_PORT: ${TOR_CONTROL_PORT:-9051}
-      TOR_PASSWORD: ${TOR_PASSWORD:-your_tor_password} # Use a strong password
+      TOR_PASSWORD: ${TOR_PASSWORD:-S0meVerySecur3P@ssw0rd} # Use strong password from .env
     ports:
-      # Expose Tor SOCKS and Control ports [cite: 10842]
       - "${TOR_SOCKS_PORT:-9050}:${TOR_SOCKS_PORT:-9050}"
       - "${TOR_CONTROL_PORT:-9051}:${TOR_CONTROL_PORT:-9051}"
+    volumes:
+      # Mount custom torrc if needed
+      - ./tor-network/torrc:/etc/tor/torrc:ro
     restart: unless-stopped
-    # Consider adding torrc configuration volume if needed [cite: 12009]
+    networks:
+      - elights_internal
+    healthcheck:
+       test: ["CMD", "nc", "-z", "localhost", "${TOR_SOCKS_PORT:-9050}"] # Basic check SOCKS port
+       interval: 30s
+       timeout: 10s
+       retries: 3
 
-  # Backend Core API Service (Add this service)
+  # Backend Core API Service
   core-api:
     build:
-      context: ./backend/core-api
-      dockerfile: ../Dockerfile # Assuming Dockerfile is in backend/
-    ports:
-      - "${CORE_API_PORT:-8080}:8080" # Expose API port
+      context: . # Build from root context
+      dockerfile: backend/core-api/Dockerfile # Path to Dockerfile
+    container_name: elights_core_api
+    hostname: core-api
     environment:
-      # Pass necessary environment variables from .env file
+      # Pass necessary environment variables from .env file using variable substitution
       DATABASE_URL: ${DATABASE_URL}
-      # Add other env vars required by the API (JWT secrets, etc.)
+      JWT_SECRET: ${JWT_SECRET}
+      RUST_LOG: ${RUST_LOG:-info}
+      API_BIND_ADDR: 0.0.0.0:${CORE_API_PORT:-8080} # Bind inside container
+      # Pass other necessary vars for integrations
+      BTCPAY_URL: ${BTCPAY_URL}
+      BTCPAY_API_KEY: ${BTCPAY_API_KEY}
+      MONERO_WALLET_RPC: ${MONERO_WALLET_RPC}
+      MONERO_WALLET_USER: ${MONERO_WALLET_USER}
+      MONERO_WALLET_PASSWORD: ${MONERO_WALLET_PASSWORD}
+      TOR_SOCKS_PROXY: tor:${TOR_SOCKS_PORT:-9050} # Internal address for Tor proxy
+      # FT API Key
+      FT_API_KEY: ${FT_API_KEY}
+      FT_PUSH_ENABLED: ${FT_PUSH_ENABLED:-false}
+      FT_PUSH_CALLBACK_URL: ${FT_PUSH_CALLBACK_URL} # URL core-api listens on for FT pushes
+      # Bank API Credentials (pass relevant ones)
+      WELLS_FARGO_API_KEY: ${WELLS_FARGO_API_KEY}
+      CHASE_API_KEY: ${CHASE_API_KEY}
+      # ... other bank keys/tokens
+    ports:
+      # Expose API port (host:container)
+      - "${CORE_API_PORT:-8080}:${CORE_API_PORT:-8080}"
+      # Expose TLS port if API serves TLS directly
+      # - "${BANK_PORT:-8443}:${BANK_PORT:-8443}"
+    volumes:
+      # Mount config/certs if needed by the application directly
+      # - ./config:/app/config:ro
+      # TODO: Consider mounting logs volume if not logging to stdout/stderr
+      - core_api_logs:/app/logs
     depends_on:
       postgres:
-        condition: service_healthy # Wait for postgres to be healthy [cite: 13856]
+        condition: service_healthy # Wait for postgres to be healthy
       tor:
-        condition: service_started # Wait for tor to start
-      # Add depends_on for btcpay and monero-wallet if needed
+        condition: service_healthy # Wait for tor SOCKS port to be open
+      # Add depends_on for btcpay and monero-wallet-rpc if running them via compose
     restart: unless-stopped
+    networks:
+      - elights_internal
+      - elights_external # Optional: if API needs direct external access separate from proxy
 
+# Define named volumes for data persistence
 volumes:
-  # Define persistent volume for PostgreSQL data [cite: 10841]
   postgres_data:
+    driver: local
+  monero_wallet_data:
+    driver: local
+  core_api_logs:
+    driver: local
+  # btcpay_data: # If running BTCPay locally
+  #   driver: local
 
+# Define networks
 networks:
-  # Optional: Define a network for services to communicate
-  default:
+  elights_internal: # Internal network for backend services
+    driver: bridge
+  elights_external: # Optional external network
     driver: bridge

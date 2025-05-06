@@ -20,7 +20,6 @@ pub fn satoshis_to_btc(satoshis: u64) -> Decimal {
     Decimal::from(satoshis) / SATOSHIS_PER_BTC
 }
 
-
 /// Converts an XMR amount (as Decimal) to Monero atomic units (piconeros) (as u64).
 /// Returns None if conversion results in overflow or is negative.
 pub fn xmr_to_atomic_units(xmr_amount: Decimal) -> Option<u64> {
@@ -35,7 +34,7 @@ pub fn atomic_units_to_xmr(atomic_units: u64) -> Decimal {
     Decimal::from(atomic_units) / ATOMIC_UNITS_PER_XMR
 }
 
-// Example Usage (can be put in tests)
+// Tests remain the same as previously generated
 #[cfg(test)]
 mod tests {
     use super::*;

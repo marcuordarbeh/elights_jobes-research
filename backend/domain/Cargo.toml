@@ -5,25 +5,59 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# Core & Utilities
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
-rust_decimal = { version = "1", features = ["serde"] } # For precise money handling
 uuid = { version = "1", features = ["v4", "serde"] }
-thiserror = "1.0" # For custom error types
-iso_4217 = "0.4" # For currency codes
-iso_country = "0.4" # For country codes
-iban = "0.5" # For IBAN validation/handling
-swift = "0.2" # For SWIFT BIC validation/handling (consider alternatives if needed)
-rand = "0.8" # For generating random elements if needed [cite: 10778]
+thiserror = "1.0"
+log = "0.4"
+rand = "0.8"
+async-trait = "0.1" # For defining traits (e.g., payment gateways)
 
-# Add crypto dependencies as needed (consider workspace dependencies)
-# Example for Monero related types if not handled in cryptography-exchange crate
-# monero = { version = "0.17", optional = true } # Example, check latest [cite: 10897, 10900]
+# Data Handling & Finance
+rust_decimal = { version = "1.32", features = ["serde", "maths"] } # Use specific recent version
+rust_decimal_macros = "1.32"
+iso_4217 = "0.4" # Currency codes
+iso_country = "0.4" # Country codes
 
-# Add payment standard libraries (ISO 20022, etc.) if available
-# iso20022 = { version = "...", optional = true } # Placeholder
+# Database (Diesel ORM)
+diesel = { version = "2.1", features = [
+    "postgres",      # Enable PostgreSQL backend
+    "chrono",        # For mapping chrono types
+    "uuid",          # For mapping uuid types
+    "serde_json",    # For mapping JSONB type
+    "r2d2",          # Connection pooling (optional, can be handled in core-api)
+    "numeric",       # For mapping NUMERIC type (for rust_decimal)
+    # "network-address", # If storing IP addresses directly
+]}
+bigdecimal = { version = "0.4", features = ["serde"] } # Required by diesel for Numeric mapping
+
+# Payment Standards Validation
+iban = "0.5"
+swift = "0.2" # Or consider alternatives for BIC validation
+
+# Cryptography (Core Hashes, Password Hashing, JWT Stubs)
+sha2 = "0.10" # For basic hashing examples
+md5 = "0.7" # Only for non-security hashing examples (like in ZKP stubs)
+bcrypt = "0.14" # For password hashing
+jsonwebtoken = { version = "8", optional = true } # For JWT generation/validation stubs
+
+# Crypto Libraries (Monero - Requires Feature Flag)
+monero = { version = "0.17", optional = true } # Check latest version
+
+# XML Handling (for ISO 20022 generation stubs)
+quick-xml = { version = "0.30", features = ["serialize", "async-tokio"], optional = true }
 
 [features]
-# Add features if needed, e.g., for different payment types
-# default = []
-# crypto = ["dep:monero"]
+default = []
+# Enable Monero support specifically
+monero_support = ["dep:monero"]
+# Enable XML support for ISO 20022 stubs
+iso20022_xml = ["dep:quick-xml"]
+# Enable JWT support if implementing token logic here
+# jwt_support = ["dep:jsonwebtoken"]
+
+[dev-dependencies]
+# Dependencies for running tests within the domain crate
+# tokio = { version = "1", features = ["macros"] } # If tests are async

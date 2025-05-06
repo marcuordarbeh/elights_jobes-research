@@ -1,5 +1,32 @@
-target
-fronds/node_modules
-fronds/package-lock.json
-package-lock.json
+# /home/inno/elights_jobes-research/.gitignore
 
+# Rust
+/target/
+Cargo.lock
+
+# Environment files
+.env
+*.env.*
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Secrets / Configs (ensure sensitive files aren't committed)
+# config/certs/ # Example if certs are stored here
+
+# Node Modules (for frontend if added later)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Add other specific files or directories to ignore

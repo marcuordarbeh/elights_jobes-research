@@ -1,22 +1,30 @@
 # /home/inno/elights_jobes-research/Cargo.toml
 [workspace]
-resolver = "2" # Use the latest resolver for better dependency management
+resolver = "2" # Use the latest resolver
 
 members = [
   "backend/core-api",
-  "backend/domain", # Updated path
+  "backend/domain",
   "cryptography-exchange",
   "tor-network",
   "bank-integrations",
-  # Add other crates if they become part of the workspace
+  # Add database crate if using Diesel connections directly there
+  # "database",
 ]
 
-# Optional: Define shared workspace dependencies or configurations if needed
-#[dependencies]
-# Example: shared logging crate
+# Optional: Define shared workspace dependencies or configurations
+# [dependencies]
 # log = "0.4"
+# serde = { version = "1.0", features = ["derive"] }
+# tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
-#[profile.release]
-# Example: optimize release builds
-#lto = true
-#codegen-units = 1
+# Optional: Define shared profiles
+[profile.release]
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce parallelism for better optimization
+panic = 'abort'     # Abort on panic for smaller binary size
+strip = true        # Strip symbols from binary
+opt-level = 'z'     # Optimize for size ('s') or speed ('3')
+
+[profile.dev]
+opt-level = 0       # Faster builds for development

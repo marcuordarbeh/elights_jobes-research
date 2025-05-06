@@ -1,66 +1,109 @@
--- /home/inno/elights_jobes-research/database/migrations/YYYY-MM-DD-HHMMSS_create_core_tables/up.sql
--- Adjust timestamp in directory name
+-- /home/inno/elights_jobes-research/database/migrations/YYYY-MM-DD-HHMMSS_create_initial_schema/up.sql
 
--- Users table (using username as primary identifier seems more common than serial id)
+-- Create Users Table
 CREATE TABLE core_schema.users (
-    username TEXT PRIMARY KEY,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL, -- Store hashed passwords only!
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+    user_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), -- Use UUID for primary key
+    username VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL, -- Store securely hashed passwords (e.g., bcrypt)
+    -- Add roles, status, 2FA settings etc. as needed
+    -- role VARCHAR(50) NOT NULL DEFAULT 'user',
+    -- status VARCHAR(20) NOT NULL DEFAULT 'active', -- e.g., active, suspended, pending_verification
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX idx_users_username ON core_schema.users(username);
+CREATE INDEX idx_users_email ON core_schema.users(email);
 
--- Accounts table (linking fiat/bank accounts to users)
-CREATE TABLE core_schema.accounts (
-    id SERIAL PRIMARY KEY, -- Or UUID if preferred: UUID PRIMARY KEY DEFAULT uuid_generate_v4()
-    owner_username TEXT NOT NULL REFERENCES core_schema.users(username) ON DELETE CASCADE,
-    account_identifier TEXT NOT NULL UNIQUE, -- Could be IBAN, account number etc. depending on type
-    account_type TEXT NOT NULL, -- e.g., 'FIAT_BANK', 'CRYPTO_XMR', 'CRYPTO_BTC'
-    currency TEXT NOT NULL, -- ISO 4217 for fiat, Ticker for crypto (e.g., USD, EUR, XMR, BTC)
-    balance NUMERIC(18, 8) NOT NULL DEFAULT 0.00, -- Increased precision for crypto
-    bank_name TEXT, -- For FIAT_BANK type
-    routing_number TEXT, -- For FIAT_BANK type (USA specific)
-    iban TEXT, -- For FIAT_BANK type (Europe specific)
-    bic_swift TEXT, -- For FIAT_BANK type (SWIFT code) [cite: 8]
-    crypto_address TEXT, -- For CRYPTO types
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-    -- Consider adding status (active, inactive, closed)
+-- Create Wallets Table (for internal tracking of crypto addresses/accounts)
+CREATE TABLE core_schema.wallets (
+    wallet_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES core_schema.users(user_id) ON DELETE CASCADE,
+    wallet_type VARCHAR(50) NOT NULL, -- e.g., 'FIAT_USD', 'CRYPTO_BTC', 'CRYPTO_XMR', 'FIAT_EUR'
+    currency_code VARCHAR(10) NOT NULL, -- ISO 4217 (USD, EUR) or Ticker (BTC, XMR)
+    balance NUMERIC(38, 18) NOT NULL DEFAULT 0.0, -- High precision for crypto
+    -- Fiat specific fields
+    bank_name VARCHAR(255),
+    account_number_hash TEXT, -- Hash or encrypt sensitive numbers
+    iban_hash TEXT,
+    bic_swift VARCHAR(11),
+    routing_number_hash TEXT,
+    -- Crypto specific fields
+    address VARCHAR(255), -- Public address
+    address_index INTEGER, -- For HD wallets / Monero subaddresses
+    -- BlindAE specific (conceptual - needs real implementation)
+    -- blindae_encrypted_balance TEXT, -- Encrypted balance using BlindAE
+    -- blindae_policy_id VARCHAR(100), -- Reference to the policy used
+    status VARCHAR(20) NOT NULL DEFAULT 'active', -- e.g., active, inactive
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE INDEX idx_wallets_user_id ON core_schema.wallets(user_id);
+CREATE INDEX idx_wallets_type_currency ON core_schema.wallets(wallet_type, currency_code);
+CREATE INDEX idx_wallets_address ON core_schema.wallets(address); -- If querying by address
 
--- Create index on owner for faster lookups
-CREATE INDEX idx_accounts_owner ON core_schema.accounts(owner_username);
-
--- Transactions table (more detailed)
+-- Create Transactions Table
 CREATE TABLE core_schema.transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- Using UUID for transaction IDs [cite: 10886]
-    debit_account_id INTEGER REFERENCES core_schema.accounts(id), -- Nullable for deposits/external source
-    credit_account_id INTEGER REFERENCES core_schema.accounts(id), -- Nullable for withdrawals/external dest
-    amount NUMERIC(18, 8) NOT NULL, -- Amount transferred
-    currency TEXT NOT NULL, -- Currency of the transaction
-    transaction_type TEXT NOT NULL, -- e.g., 'ACH', 'WIRE', 'CRYPTO_BTC', 'CRYPTO_XMR', 'INTERNAL_TRANSFER', 'CARD' [cite: 10886]
-    status TEXT NOT NULL DEFAULT 'PENDING', -- e.g., PENDING, COMPLETED, FAILED, CANCELLED
-    description TEXT, -- Optional description
-    metadata JSONB, -- Store type-specific details (e.g., swift details, crypto tx hash, ACH trace id) [cite: 10886]
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-    -- Consider adding foreign keys to users if direct user association is needed beyond account owner
+    transaction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    debit_wallet_id UUID REFERENCES core_schema.wallets(wallet_id), -- Nullable for deposits/external sources
+    credit_wallet_id UUID REFERENCES core_schema.wallets(wallet_id), -- Nullable for withdrawals/external sinks
+    transaction_type VARCHAR(50) NOT NULL, -- e.g., 'ACH_CREDIT', 'WIRE_OUT', 'CARD_DEBIT', 'CRYPTO_BTC_SEND', 'CRYPTO_XMR_RECEIVE', 'INTERNAL_TRANSFER', 'CONVERSION'
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- e.g., PENDING, PROCESSING, REQUIRES_ACTION, COMPLETED, FAILED, CANCELLED, SETTLED (RTGS)
+    amount NUMERIC(38, 18) NOT NULL, -- Amount transferred
+    currency_code VARCHAR(10) NOT NULL, -- Currency of the transaction
+    description TEXT, -- User-provided or generated description
+    external_ref_id VARCHAR(255) UNIQUE, -- Reference from external system (e.g., bank API, crypto tx hash, payment gateway ID)
+    metadata JSONB, -- Store type-specific details (swift details, crypto tx info, ACH trace, card auth codes, ISO 20022 refs)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    settlement_at TIMESTAMPTZ -- Timestamp when RTGS/final settlement occurred
 );
-
--- Indexes for common queries
-CREATE INDEX idx_transactions_debit_account ON core_schema.transactions(debit_account_id);
-CREATE INDEX idx_transactions_credit_account ON core_schema.transactions(credit_account_id);
+CREATE INDEX idx_transactions_debit_wallet ON core_schema.transactions(debit_wallet_id);
+CREATE INDEX idx_transactions_credit_wallet ON core_schema.transactions(credit_wallet_id);
 CREATE INDEX idx_transactions_status ON core_schema.transactions(status);
 CREATE INDEX idx_transactions_type ON core_schema.transactions(transaction_type);
+CREATE INDEX idx_transactions_external_ref ON core_schema.transactions(external_ref_id);
 CREATE INDEX idx_transactions_created_at ON core_schema.transactions(created_at DESC);
 
--- Add trigger function/procedure for updated_at timestamp columns if needed
--- CREATE OR REPLACE FUNCTION update_modified_column()
--- RETURNS TRIGGER AS $$
--- BEGIN
---     NEW.updated_at = now();
---     RETURN NEW;
--- END;
--- $$ language 'plpgsql';
+-- Create Audit Log Table
+CREATE TABLE core_schema.audit_logs (
+    log_id BIGSERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    user_id UUID REFERENCES core_schema.users(user_id), -- Nullable for system events
+    actor_identifier VARCHAR(255) NOT NULL, -- Username, System Component, API Key ID
+    action VARCHAR(100) NOT NULL, -- e.g., 'LOGIN_SUCCESS', 'PAYMENT_INITIATED', 'CONFIG_UPDATE'
+    target_type VARCHAR(100), -- e.g., 'TRANSACTION', 'USER', 'WALLET', 'SYSTEM'
+    target_id VARCHAR(255), -- UUID or other identifier of the target entity
+    outcome VARCHAR(20) NOT NULL, -- 'SUCCESS', 'FAILURE'
+    details JSONB, -- Additional context (e.g., parameters, changes, source IP)
+    error_message TEXT -- Store error details on failure
+);
+CREATE INDEX idx_audit_logs_timestamp ON core_schema.audit_logs(timestamp DESC);
+CREATE INDEX idx_audit_logs_user_id ON core_schema.audit_logs(user_id);
+CREATE INDEX idx_audit_logs_action ON core_schema.audit_logs(action);
+CREATE INDEX idx_audit_logs_target ON core_schema.audit_logs(target_type, target_id);
 
--- CREATE TRIGGER update_accounts_modtime BEFORE UPDATE ON core_schema.accounts FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
--- CREATE TRIGGER update_transactions_modtime BEFORE UPDATE ON core_schema.transactions FOR EACH ROW EXECUTE PROCEDURE update_modified_column();
+-- Trigger function to automatically update `updated_at` columns
+CREATE OR REPLACE FUNCTION core_schema.trigger_set_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply the trigger to tables with `updated_at`
+CREATE TRIGGER set_timestamp_users
+BEFORE UPDATE ON core_schema.users
+FOR EACH ROW
+EXECUTE FUNCTION core_schema.trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp_wallets
+BEFORE UPDATE ON core_schema.wallets
+FOR EACH ROW
+EXECUTE FUNCTION core_schema.trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp_transactions
+BEFORE UPDATE ON core_schema.transactions
+FOR EACH ROW
+EXECUTE FUNCTION core_schema.trigger_set_timestamp();
